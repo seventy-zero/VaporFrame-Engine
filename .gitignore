@@ -1,0 +1,66 @@
+# Build artifacts
+[Bb]uild/
+[Bb]uild*/
+*.local
+*.cmake. ComunicaciónData/
+*.VC.db
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+*.obj.rsp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Debug files
+*.pdb
+*.idb
+*.ilk
+*.msvc.pdb
+*.suo
+
+# Visual Studio Code
+.vscode/
+
+# User-specific files (e.g. cquery, rtags)
+.cquery_cached_index/
+.rtags/
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+install_manifest.txt
+CTestTestfile.cmake
+
+# Bin directory
+[Bb]in/
+
+# Output directories from common IDEs
+.vs/
+*.VC.opendb 
