@@ -17,27 +17,14 @@ const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
 
-// GLFW error callback
-void glfw_error_callback(int error, const char* description) {
-    std::cerr << "GLFW Error (" << error << "): " << description << std::endl;
-}
-
-// Vulkan Debug Messenger Callback
+// Forward declarations for static callback functions
+static void glfw_error_callback(int error, const char* description);
+static void framebuffer_resize_callback(GLFWwindow* window, int width, int height);
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT messageType,
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-    void* pUserData) {
-
-    std::cerr << "Validation layer: " << pCallbackData->pMessage << std::endl;
-
-    if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-        // Messages of WARNING severity or higher will trigger a breakpoint or abort in debug.
-        // In a real app, you might want to log this more robustly.
-    }
-
-    return VK_FALSE; // Should always return VK_FALSE
-}
+    void* pUserData);
 
 // Helper function to load vkCreateDebugUtilsMessengerEXT
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance,
@@ -107,6 +94,21 @@ public:
         cleanup();
     }
 
+    VkShaderModule createShaderModule(const std::vector<char>& code) {
+        VkShaderModuleCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        createInfo.codeSize = code.size(); // Size in bytes
+        createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+        VkShaderModule shaderModule;
+        if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create shader module!");
+        }
+        return shaderModule;
+    }
+
+    bool framebufferResized = false; // Flag for window resize, ensure it's accessible
+
 private:
     GLFWwindow* window;
     VkInstance instance;
@@ -149,15 +151,16 @@ private:
         }
         std::cout << "GLFW initialized successfully." << std::endl;
 
-        // Tell GLFW not to create an OpenGL context
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        // Disable window resizing for now, as it requires handling swap chain recreation
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // We will handle resizing now
 
         window = glfwCreateWindow(WIDTH, HEIGHT, "VaporFrame Engine - Vulkan", nullptr, nullptr);
         if (!window) {
             throw std::runtime_error("Failed to create GLFW window!");
         }
+        glfwSetWindowUserPointer(window, this); // Store app pointer for callback
+        glfwSetFramebufferSizeCallback(window, framebuffer_resize_callback); // Set resize callback
+
         std::cout << "GLFW window created successfully." << std::endl;
     }
 
@@ -858,22 +861,18 @@ private:
 
     void drawFrame() {
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-        // No need to reset fence here if it was created signaled and vkResetFences is called below before use.
 
         uint32_t imageIndex;
         VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
-        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-            // Swap chain is no longer compatible with the surface (e.g. window resized)
-            // We need to recreate it. For now, we'll just throw an error or log.
-            // recreateSwapChain(); // This would be the proper handling
-            std::cerr << "Swap chain out of date! (Not handled yet)" << std::endl;
-            return; // Or throw
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || framebufferResized) {
+            recreateSwapChain();
+            return;
         } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
             throw std::runtime_error("Failed to acquire swap chain image!");
         }
 
-        // Only reset the fence if we are submitting work
+        // Only reset the fence if we are submitting work (and not recreating swapchain)
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
         // Command buffer for this imageIndex might need re-recording if dynamic aspects change.
@@ -903,19 +902,17 @@ private:
         VkPresentInfoKHR presentInfo{};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = signalSemaphores; // Wait on render finishing
+        presentInfo.pWaitSemaphores = signalSemaphores;
 
         VkSwapchainKHR swapChains[] = {swapChain};
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = swapChains;
         presentInfo.pImageIndices = &imageIndex;
-        presentInfo.pResults = nullptr; // Optional
 
         result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
-        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            // recreateSwapChain(); // Not handled yet
-             std::cerr << "Swap chain out of date/suboptimal during present! (Not handled yet)" << std::endl;
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
+            recreateSwapChain();
         } else if (result != VK_SUCCESS) {
             throw std::runtime_error("Failed to present swap chain image!");
         }
@@ -1020,20 +1017,109 @@ private:
         std::cout << "GLFW terminated." << std::endl;
     }
 
-    // Replaces readFile for shaders
-    VkShaderModule createShaderModule(const std::vector<char>& code) {
-        VkShaderModuleCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        createInfo.codeSize = code.size(); // Size in bytes
-        createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+    void cleanupSwapChain() {
+        std::cout << "Cleaning up swap chain resources..." << std::endl;
 
-        VkShaderModule shaderModule;
-        if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create shader module!");
+        for (auto framebuffer : swapChainFramebuffers) {
+            if (framebuffer != VK_NULL_HANDLE) vkDestroyFramebuffer(device, framebuffer, nullptr);
         }
-        return shaderModule;
+        swapChainFramebuffers.clear();
+
+        if (commandPool != VK_NULL_HANDLE) { // Command buffers are freed with the pool
+             // vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+             // commandBuffers.clear(); // No need to clear if destroying pool
+            vkDestroyCommandPool(device, commandPool, nullptr); 
+            commandPool = VK_NULL_HANDLE; // Nullify to avoid double free if recreate fails
+        }
+        // Note: commandBuffers vector itself doesn't need explicit clearing if pool is destroyed
+
+        if (graphicsPipeline != VK_NULL_HANDLE) vkDestroyPipeline(device, graphicsPipeline, nullptr);
+        graphicsPipeline = VK_NULL_HANDLE;
+        if (pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        pipelineLayout = VK_NULL_HANDLE;
+        if (renderPass != VK_NULL_HANDLE) vkDestroyRenderPass(device, renderPass, nullptr);
+        renderPass = VK_NULL_HANDLE;
+
+        for (auto imageView : swapChainImageViews) {
+            if (imageView != VK_NULL_HANDLE) vkDestroyImageView(device, imageView, nullptr);
+        }
+        swapChainImageViews.clear();
+
+        if (swapChain != VK_NULL_HANDLE) vkDestroySwapchainKHR(device, swapChain, nullptr);
+        swapChain = VK_NULL_HANDLE;
+         std::cout << "Swap chain resources cleaned up." << std::endl;
+    }
+
+    void recreateSwapChain() {
+        std::cout << "Recreating swap chain..." << std::endl;
+        int width = 0, height = 0;
+        glfwGetFramebufferSize(window, &width, &height);
+        while (width == 0 || height == 0) { // Handle minimization
+            glfwGetFramebufferSize(window, &width, &height);
+            glfwWaitEvents();
+        }
+
+        vkDeviceWaitIdle(device);
+        cleanupSwapChain();
+
+        createSwapChain();
+        createImageViews();
+        createRenderPass();       // Needs to be recreated as it depends on swapChainImageFormat
+        createGraphicsPipeline(); // Needs to be recreated as it depends on swapChainExtent (viewport/scissor) and renderPass
+        createFramebuffers();
+        createCommandPool();      // Needs to be recreated as we destroyed it
+        createCommandBuffers();   // Command buffers need to be re-recorded
+        // Sync objects (renderFinishedSemaphores) might need resizing if image count changes
+        // For simplicity, we can destroy and recreate all sync objects that depend on image count.
+        // Let's check if imageAvailableSemaphores and inFlightFences (MAX_FRAMES_IN_FLIGHT) need to change.
+        // No, they are fixed size. Only renderFinishedSemaphores depends on swapChainImages.size().
+        // We need to cleanup and recreate renderFinishedSemaphores.
+        for (size_t i = 0; i < renderFinishedSemaphores.size(); i++) { // Old size
+            if (renderFinishedSemaphores[i] != VK_NULL_HANDLE) vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
+        }
+        renderFinishedSemaphores.resize(swapChainImages.size()); // New size
+        VkSemaphoreCreateInfo semaphoreInfo{};
+        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        for (size_t i = 0; i < swapChainImages.size(); i++) {
+            if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS) {
+                throw std::runtime_error("Failed to recreate renderFinishedSemaphore for a swapchain image!");
+            }
+        }
+
+        std::cout << "Swap chain recreated successfully." << std::endl;
+        framebufferResized = false; // Reset the flag
     }
 };
+
+// GLFW error callback
+static void glfw_error_callback(int error, const char* description) {
+    std::cerr << "GLFW Error (" << error << "): " << description << std::endl;
+}
+
+// GLFW framebuffer resize callback
+static void framebuffer_resize_callback(GLFWwindow* window, int width, int height) {
+    auto app = reinterpret_cast<HelloVulkanApp*>(glfwGetWindowUserPointer(window));
+    if (app) { // Good practice to check if app pointer is valid
+        app->framebufferResized = true;
+    }
+}
+
+// Vulkan Debug Messenger Callback
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData) {
+
+    std::cerr << "Validation layer: " << pCallbackData->pMessage << std::endl;
+
+    if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+        // Messages of WARNING severity or higher will trigger a breakpoint or abort in debug.
+        // In a real app, you might want to log this more robustly.
+    }
+
+    return VK_FALSE; // Should always return VK_FALSE
+}
 
 int main() {
     HelloVulkanApp app;
