@@ -3,7 +3,15 @@ add_executable(VaporFrameEngine
     main.cpp
     VulkanRenderer.cpp
     Core/Logger.cpp
+    Core/MemoryManager.cpp
     # Headers are usually not listed here but found via include paths
+)
+
+# Memory management test executable
+add_executable(MemoryTest
+    Core/MemoryTest.cpp
+    Core/MemoryManager.cpp
+    Core/Logger.cpp
 )
 
 # target_sources(VaporFrameCore
@@ -26,6 +34,15 @@ target_link_libraries(VaporFrameEngine
         glfw
         Vulkan::Vulkan
         glm::glm
+        spdlog::spdlog
+        yaml-cpp
+        mimalloc
+    PRIVATE
+        # Any private link dependencies
+)
+
+target_link_libraries(MemoryTest
+    PUBLIC
         spdlog::spdlog
         yaml-cpp
         mimalloc
