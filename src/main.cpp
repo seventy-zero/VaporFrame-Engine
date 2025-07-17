@@ -16,11 +16,17 @@
 #endif
 
 #include "VulkanRenderer.h" // Include the new renderer header
+#include "Core/Logger.h"
+#include "Core/MemoryManager.h"
+#include "Core/InputManager.h"
+#include "Core/Camera.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Vulkan uses 0.0 to 1.0 depth range
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp> // For glm::translate, glm::rotate, glm::scale
+
+using namespace VaporFrame::Core;
 
 // Configuration
 const bool enableValidationLayers = true; // This is passed to VulkanRenderer constructor
@@ -64,6 +70,7 @@ const std::vector<const char*> deviceExtensions = {
 class HelloVulkanApp {
 public:
     void run() {
+        initSystems();
         initWindow();
         initVulkan(); 
         mainLoop();
@@ -79,18 +86,30 @@ public:
 private:
     GLFWwindow* window;
     VulkanRenderer* vulkanRenderer; // Pointer to our renderer
+    std::shared_ptr<Camera> camera;
+    float lastFrameTime = 0.0f;
 
     // All Vulkan specific members are GONE from here.
 
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
 
+    void initSystems() {
+        // Initialize logger
+        VaporFrame::Logger::getInstance().initialize("vaporframe.log");
+        VF_LOG_INFO("Starting VaporFrame Engine");
+        
+        // Initialize memory manager
+        MemoryManager::getInstance().initialize();
+        VF_LOG_INFO("Memory manager initialized successfully");
+    }
+
     void initWindow() {
         glfwSetErrorCallback(glfw_error_callback);
         if (!glfwInit()) {
             throw std::runtime_error("Failed to initialize GLFW!");
         }
-        std::cout << "GLFW initialized successfully." << std::endl;
+        VF_LOG_INFO("GLFW initialized successfully");
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         window = glfwCreateWindow(WIDTH, HEIGHT, "VaporFrame Engine - Vulkan", nullptr, nullptr);
@@ -99,13 +118,31 @@ private:
         }
         glfwSetWindowUserPointer(window, this); 
         glfwSetFramebufferSizeCallback(window, framebuffer_resize_callback);
-        std::cout << "GLFW window created successfully." << std::endl;
+        
+        // Initialize InputManager
+        InputManager::getInstance().initialize(window);
+        VF_LOG_INFO("InputManager initialized successfully");
+        
+        VF_LOG_INFO("GLFW window created successfully");
     }
 
     void initVulkan() {
         vulkanRenderer = new VulkanRenderer(window, validationLayers, enableValidationLayers); // enableValidationLayers is a global const here
         vulkanRenderer->initVulkan();
-        std::cout << "HelloVulkanApp: Vulkan initialization delegated to VulkanRenderer." << std::endl;
+        VF_LOG_INFO("Vulkan initialization delegated to VulkanRenderer");
+
+        // Camera setup
+        camera = std::make_shared<Camera>(CameraType::Perspective);
+        camera->setPosition(glm::vec3(2.0f, 2.0f, 2.0f));
+        camera->setTarget(glm::vec3(0.0f, 0.0f, 0.0f));
+        camera->setUp(glm::vec3(0.0f, 0.0f, 1.0f));
+        camera->setAspectRatio(static_cast<float>(WIDTH) / static_cast<float>(HEIGHT));
+        camera->setFOV(45.0f);
+        camera->setNearPlane(0.1f);
+        camera->setFarPlane(10.0f);
+        camera->setFirstPersonMode();
+        camera->bindInputControls(InputManager::getInstance());
+        VF_LOG_INFO("Camera initialized and input controls bound");
     }
 
     void drawFrame() {
@@ -117,32 +154,69 @@ private:
     void mainLoop() {
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+            
+            // Update input manager
+            InputManager::getInstance().update();
+            
+            // Handle input
+            if (IsKeyPressed(KeyCode::Escape)) {
+                glfwSetWindowShouldClose(window, GLFW_TRUE);
+                VF_LOG_INFO("Escape key pressed, closing application");
+            }
+            
+            // Calculate delta time
+            float currentFrameTime = static_cast<float>(glfwGetTime());
+            float deltaTime = currentFrameTime - lastFrameTime;
+            lastFrameTime = currentFrameTime;
+
+            // Update camera
+            if (camera) {
+                camera->update(deltaTime);
+                // Update aspect ratio if window resized
+                int width, height;
+                glfwGetFramebufferSize(window, &width, &height);
+                if (height > 0) {
+                    camera->setAspectRatio(static_cast<float>(width) / static_cast<float>(height));
+                }
+                // Pass camera matrices to renderer
+                vulkanRenderer->setViewMatrix(camera->getViewMatrix());
+                vulkanRenderer->setProjectionMatrix(camera->getProjectionMatrix());
+            }
+
             drawFrame();
         }
     }
 
     void cleanup() {
-        std::cout << "Starting cleanup in HelloVulkanApp..." << std::endl;
+        VF_LOG_INFO("Starting cleanup in HelloVulkanApp");
+        
+        // Shutdown InputManager
+        InputManager::getInstance().shutdown();
+        VF_LOG_INFO("InputManager shutdown");
         
         if (vulkanRenderer) {
             vulkanRenderer->cleanup(); 
             delete vulkanRenderer;
             vulkanRenderer = nullptr;
-            std::cout << "VulkanRenderer cleaned up and deleted." << std::endl;
+            VF_LOG_INFO("VulkanRenderer cleaned up and deleted");
         }
 
         if (window != nullptr) { 
             glfwDestroyWindow(window);
             window = nullptr; 
-            std::cout << "GLFW window destroyed." << std::endl;
+            VF_LOG_INFO("GLFW window destroyed");
         }
         glfwTerminate();
-        std::cout << "GLFW terminated." << std::endl;
+        VF_LOG_INFO("GLFW terminated");
+        
+        // Shutdown systems
+        MemoryManager::getInstance().shutdown();
+        VaporFrame::Logger::getInstance().shutdown();
     }
 };
 
 static void glfw_error_callback(int error, const char* description) {
-    std::cerr << "GLFW Error (" << error << "): " << description << std::endl;
+    VF_LOG_ERROR("GLFW Error ({}): {}", error, description);
 }
 
 static void framebuffer_resize_callback(GLFWwindow* window, int width, int height) {
@@ -158,13 +232,14 @@ int main() {
     try {
         app.run();
     } catch (const std::exception& e) {
-        std::cerr << "Unhandled Exception caught in main: " << e.what() << std::endl;
+        VF_LOG_CRITICAL("Unhandled Exception caught in main: {}", e.what());
         std::cerr << "Press Enter to exit..." << std::endl;
         std::cin.get(); 
         return EXIT_FAILURE;
     }
 
-    std::cout << "Application finished successfully. Press Enter to exit..." << std::endl;
+    VF_LOG_INFO("Application finished successfully");
+    std::cout << "Press Enter to exit..." << std::endl;
     std::cin.get(); 
     return EXIT_SUCCESS;
 } 

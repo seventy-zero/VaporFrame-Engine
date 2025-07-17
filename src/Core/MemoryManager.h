@@ -10,6 +10,7 @@
 #include <functional>
 #include <string>
 #include <optional>
+#include <chrono>
 
 namespace VaporFrame {
 namespace Core {
@@ -52,14 +53,12 @@ struct AllocationInfo {
     std::string tag;
     std::string file;
     int line = 0;
-    std::chrono::steady_clock::time_point timestamp;
     bool isArray = false;
     
     AllocationInfo() = default;
     AllocationInfo(void* p, std::size_t s, std::size_t align, const std::string& t, 
                    const std::string& f, int l, bool arr = false)
-        : ptr(p), size(s), alignment(align), tag(t), file(f), line(l), 
-          timestamp(std::chrono::steady_clock::now()), isArray(arr) {}
+        : ptr(p), size(s), alignment(align), tag(t), file(f), line(l), isArray(arr) {}
 };
 
 /**

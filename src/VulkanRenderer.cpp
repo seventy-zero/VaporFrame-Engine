@@ -586,7 +586,7 @@ void VulkanRenderer::createGraphicsPipeline() {
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
 
     VkPipelineMultisampleStateCreateInfo multisampling{};
@@ -1228,9 +1228,10 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImageIndex) {
 
     UniformBufferObject ubo{};
     ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
-    ubo.proj[1][1] *= -1; // GLM was designed for OpenGL, y-coordinate of clip coordinates is inverted
+    ubo.view = externalViewMatrix;
+    ubo.proj = externalProjMatrix;
+    // Ensure Y-flip for Vulkan
+    ubo.proj[1][1] *= -1;
 
     memcpy(uniformBuffersMapped[currentImageIndex], &ubo, sizeof(ubo));
 }
@@ -1411,3 +1412,11 @@ void VulkanRenderer::createDepthResources() {
 }
 
 // --- End of Vulkan function implementations --- 
+
+void VulkanRenderer::setViewMatrix(const glm::mat4& view) {
+    externalViewMatrix = view;
+}
+
+void VulkanRenderer::setProjectionMatrix(const glm::mat4& proj) {
+    externalProjMatrix = proj;
+} 

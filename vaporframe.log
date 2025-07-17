@@ -1,0 +1,34 @@
+[2025-07-17 14:56:38.387] [info] [8644] VaporFrame Engine Logger initialized successfully
+[2025-07-17 14:56:38.389] [info] [8644] Log file: vaporframe.log
+[2025-07-17 14:56:38.389] [info] [8644] Starting VaporFrame Engine
+[2025-07-17 14:56:38.389] [info] [8644] Memory manager initialized successfully
+[2025-07-17 14:56:38.402] [info] [8644] GLFW initialized successfully
+[2025-07-17 14:56:38.584] [info] [8644] InputManager initialized successfully
+[2025-07-17 14:56:38.584] [info] [8644] InputManager initialized successfully
+[2025-07-17 14:56:38.584] [info] [8644] GLFW window created successfully
+[2025-07-17 14:56:39.081] [info] [8644] Vulkan initialization delegated to VulkanRenderer
+[2025-07-17 14:56:54.748] [info] [8644] Starting cleanup in HelloVulkanApp
+[2025-07-17 14:56:54.749] [info] [8644] InputManager shutdown
+[2025-07-17 14:56:54.749] [info] [8644] InputManager shutdown
+[2025-07-17 14:56:55.299] [info] [8644] VulkanRenderer cleaned up and deleted
+[2025-07-17 14:56:55.317] [info] [8644] GLFW window destroyed
+[2025-07-17 14:56:55.325] [info] [8644] GLFW terminated
+[2025-07-17 14:56:55.327] [info] [8644] Shutting down VaporFrame Engine Logger
+[2025-07-17 15:03:37.335] [info] [15796] VaporFrame Engine Logger initialized successfully
+[2025-07-17 15:03:37.336] [info] [15796] Log file: vaporframe.log
+[2025-07-17 15:03:37.336] [info] [15796] Starting VaporFrame Engine
+[2025-07-17 15:03:37.337] [info] [15796] Memory manager initialized successfully
+[2025-07-17 15:03:37.355] [info] [15796] GLFW initialized successfully
+[2025-07-17 15:03:37.518] [info] [15796] InputManager initialized successfully
+[2025-07-17 15:03:37.518] [info] [15796] InputManager initialized successfully
+[2025-07-17 15:03:37.518] [info] [15796] GLFW window created successfully
+[2025-07-17 15:03:39.406] [info] [15796] Vulkan initialization delegated to VulkanRenderer
+[2025-07-17 15:03:39.406] [info] [15796] Camera initialized and input controls bound
+[2025-07-17 15:03:52.161] [info] [15796] Escape key pressed, closing application
+[2025-07-17 15:03:52.176] [info] [15796] Starting cleanup in HelloVulkanApp
+[2025-07-17 15:03:52.176] [info] [15796] InputManager shutdown
+[2025-07-17 15:03:52.177] [info] [15796] InputManager shutdown
+[2025-07-17 15:03:52.721] [info] [15796] VulkanRenderer cleaned up and deleted
+[2025-07-17 15:03:52.736] [info] [15796] GLFW window destroyed
+[2025-07-17 15:03:52.740] [info] [15796] GLFW terminated
+[2025-07-17 15:03:52.742] [info] [15796] Shutting down VaporFrame Engine Logger

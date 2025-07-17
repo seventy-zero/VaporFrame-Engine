@@ -4,10 +4,12 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
-#include <chrono>
+#include <cstdint>
 
+#define NOMINMAX
 #ifdef _WIN32
 #include <windows.h>
+#include <malloc.h>
 #else
 #include <sys/mman.h>
 #include <unistd.h>
@@ -71,8 +73,8 @@ void* MemoryPool::allocate(std::size_t size, std::size_t alignment) {
     }
     
     // Calculate aligned address
-    std::size_t alignedOffset = (reinterpret_cast<std::size_t>(block->data) + alignment - 1) & ~(alignment - 1);
-    std::size_t padding = alignedOffset - reinterpret_cast<std::size_t>(block->data);
+    std::size_t alignedOffset = (reinterpret_cast<std::uintptr_t>(static_cast<char*>(block->data)) + alignment - 1) & ~(alignment - 1);
+    std::size_t padding = alignedOffset - reinterpret_cast<std::uintptr_t>(static_cast<char*>(block->data));
     
     if (padding + size > block->size) {
         return nullptr; // Block too small after alignment
@@ -226,7 +228,6 @@ bool MemoryPool::expand(std::size_t additionalSize) {
     
     std::size_t totalSize = 0;
     for (void* pool : pools) {
-        // Calculate current pool size (simplified)
         totalSize += config.initialSize;
     }
     
@@ -284,8 +285,8 @@ std::size_t MemoryPool::getFragmentation() const {
 MemoryPool::Block* MemoryPool::findFreeBlock(std::size_t size, std::size_t alignment) {
     for (Block* block : freeBlocks) {
         if (!block->used) {
-            std::size_t alignedOffset = (reinterpret_cast<std::size_t>(block->data) + alignment - 1) & ~(alignment - 1);
-            std::size_t padding = alignedOffset - reinterpret_cast<std::size_t>(block->data);
+            std::size_t alignedOffset = (reinterpret_cast<std::uintptr_t>(static_cast<char*>(block->data)) + alignment - 1) & ~(alignment - 1);
+            std::size_t padding = alignedOffset - reinterpret_cast<std::uintptr_t>(static_cast<char*>(block->data));
             
             if (padding + size <= block->size) {
                 return block;
@@ -361,7 +362,7 @@ void MemoryPool::deallocateFromSystem(void* ptr) {
 #ifdef _WIN32
     VirtualFree(ptr, 0, MEM_RELEASE);
 #else
-    munmap(ptr, 0); // Size is not needed for munmap
+    munmap(ptr, 0);
 #endif
 }
 
@@ -371,6 +372,7 @@ StackAllocator::StackAllocator(std::size_t size) : totalSize(size) {
     if (!memory) {
         throw std::bad_alloc();
     }
+    currentOffset = 0;
 }
 
 StackAllocator::~StackAllocator() {
@@ -385,8 +387,8 @@ void* StackAllocator::allocate(std::size_t size, std::size_t alignment) {
     if (size == 0) return nullptr;
     
     // Calculate aligned address
-    std::size_t alignedOffset = (reinterpret_cast<std::size_t>(memory) + currentOffset + alignment - 1) & ~(alignment - 1);
-    std::size_t padding = alignedOffset - (reinterpret_cast<std::size_t>(memory) + currentOffset);
+    std::size_t alignedOffset = (reinterpret_cast<std::uintptr_t>(memory) + currentOffset + alignment - 1) & ~(alignment - 1);
+    std::size_t padding = alignedOffset - (reinterpret_cast<std::uintptr_t>(memory) + currentOffset);
     
     if (currentOffset + padding + size > totalSize) {
         return nullptr; // Not enough space
@@ -405,7 +407,6 @@ void* StackAllocator::allocate(std::size_t size, std::size_t alignment) {
 
 void StackAllocator::deallocate(void* ptr) {
     // Stack allocator doesn't support individual deallocation
-    // Use freeToMarker instead
     (void)ptr; // Suppress unused parameter warning
 }
 
@@ -620,7 +621,11 @@ void* MemoryManager::allocate(std::size_t size, std::size_t alignment,
                              const std::string& tag, const std::string& file, int line) {
     if (!initialized) {
         // Fallback to system allocator
+#ifdef _WIN32
+        return _aligned_malloc(size, alignment);
+#else
         return std::aligned_alloc(alignment, size);
+#endif
     }
     
     // Try default pool first
@@ -635,7 +640,11 @@ void* MemoryManager::allocate(std::size_t size, std::size_t alignment,
     }
     
     // Fallback to system allocator
+#ifdef _WIN32
+    void* ptr = _aligned_malloc(size, alignment);
+#else
     void* ptr = std::aligned_alloc(alignment, size);
+#endif
     if (ptr && tracker.isTrackingEnabled()) {
         tracker.trackAllocation(ptr, size, alignment, tag, file, line);
     }
@@ -646,7 +655,11 @@ void MemoryManager::deallocate(void* ptr) {
     if (!ptr) return;
     
     if (!initialized) {
+#ifdef _WIN32
+        _aligned_free(ptr);
+#else
         std::free(ptr);
+#endif
         return;
     }
     
@@ -673,7 +686,11 @@ void MemoryManager::deallocate(void* ptr) {
     }
     
     // Fallback to system deallocator
+#ifdef _WIN32
+    _aligned_free(ptr);
+#else
     std::free(ptr);
+#endif
 }
 
 void* MemoryManager::reallocate(void* ptr, std::size_t newSize) {

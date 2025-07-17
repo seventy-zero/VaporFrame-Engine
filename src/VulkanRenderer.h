@@ -129,6 +129,9 @@ public:
     VkCommandPool getCommandPool() const { return commandPool; }
     QueueFamilyIndices getQueueFamilyIndices() const { return queueFamilyIndices; }
 
+    // Camera integration
+    void setViewMatrix(const glm::mat4& view);
+    void setProjectionMatrix(const glm::mat4& proj);
 
     // Static helper functions - these could be moved to a separate utility header/cpp later
     static std::vector<char> readFile(const std::string& filename);
@@ -260,6 +263,9 @@ private:
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex); // To record commands for a specific buffer
+
+    glm::mat4 externalViewMatrix = glm::mat4(1.0f);
+    glm::mat4 externalProjMatrix = glm::mat4(1.0f);
 };
 
 #endif // VULKAN_RENDERER_H 

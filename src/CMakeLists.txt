@@ -4,6 +4,8 @@ add_executable(VaporFrameEngine
     VulkanRenderer.cpp
     Core/Logger.cpp
     Core/MemoryManager.cpp
+    Core/InputManager.cpp
+    Core/Camera.cpp
     # Headers are usually not listed here but found via include paths
 )
 
@@ -11,6 +13,21 @@ add_executable(VaporFrameEngine
 add_executable(MemoryTest
     Core/MemoryTest.cpp
     Core/MemoryManager.cpp
+    Core/Logger.cpp
+)
+
+# Input management test executable
+add_executable(InputTest
+    ../tests/InputTest.cpp
+    Core/InputManager.cpp
+    Core/Logger.cpp
+)
+
+# Camera test executable
+add_executable(CameraTest
+    ../tests/CameraTest.cpp
+    Core/Camera.cpp
+    Core/InputManager.cpp
     Core/Logger.cpp
 )
 
@@ -35,7 +52,6 @@ target_link_libraries(VaporFrameEngine
         Vulkan::Vulkan
         glm::glm
         spdlog::spdlog
-        yaml-cpp
         mimalloc
     PRIVATE
         # Any private link dependencies
@@ -44,7 +60,25 @@ target_link_libraries(VaporFrameEngine
 target_link_libraries(MemoryTest
     PUBLIC
         spdlog::spdlog
-        yaml-cpp
+        mimalloc
+    PRIVATE
+        # Any private link dependencies
+)
+
+target_link_libraries(InputTest
+    PUBLIC
+        glfw
+        spdlog::spdlog
+        mimalloc
+    PRIVATE
+        # Any private link dependencies
+)
+
+target_link_libraries(CameraTest
+    PUBLIC
+        glfw
+        glm::glm
+        spdlog::spdlog
         mimalloc
     PRIVATE
         # Any private link dependencies

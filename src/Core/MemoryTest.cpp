@@ -197,6 +197,8 @@ int main() {
         MemoryManager::getInstance().shutdown();
         
         std::cout << "\nAll tests completed successfully!" << std::endl;
+        std::cout << "Press Enter to exit..." << std::endl;
+        std::cin.get();
         
     } catch (const std::exception& e) {
         std::cerr << "Test failed with exception: " << e.what() << std::endl;

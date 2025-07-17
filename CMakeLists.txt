@@ -30,12 +30,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(spdlog)
 
 # Fetch yaml-cpp (YAML parsing)
-FetchContent_Declare(
-  yaml-cpp
-  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-  GIT_TAG yaml-cpp-0.8.0
-)
-FetchContent_MakeAvailable(yaml-cpp)
+# FetchContent_Declare(
+#   yaml-cpp
+#   GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+#   GIT_TAG 0.7.0
+# )
+# FetchContent_MakeAvailable(yaml-cpp)
 
 # Fetch mimalloc (High-performance allocator)
 FetchContent_Declare(
