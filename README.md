@@ -1,21 +1,37 @@
-# VaporFrame Engine (Working Title)
+# VaporFrame Engine
 
-A C++ game engine aiming for a PS2-era aesthetic with modern rendering capabilities.
+A C++ game engine focused on creating stylized games with a unique aesthetic.
 
-## Goals:
-*   Cross-platform (PC, Mobile)
-*   Renderer with PS2-style visuals + modern volumetric lighting & fog
-*   C++ gameplay scripting
-*   3D viewport with drag-and-drop functionality (similar to Unreal Engine)
-*   Graphics style inspired by "Shadow of the Colossus"
+## About
 
-## Modules (Planned):
-*   Core Engine
-*   Renderer
-*   Editor
-*   Physics
-*   Audio
-*   Scripting Interface
+VaporFrame Engine is an independent game engine designed for small-to-mid-sized development teams. It emphasizes performance, ease of use, and distinctive visual styles.
+
+## Features
+
+- Cross-platform support (Windows, Linux, macOS)
+- Modern rendering pipeline
+- Modular architecture
+- Performance-focused design
 
 ## Building
-(Details TBD - Likely CMake) 
+
+### Prerequisites
+- CMake 3.16+
+- C++17 compatible compiler
+- Vulkan SDK
+
+### Quick Start
+```bash
+git clone https://github.com/vaporframe/engine.git
+cd engine
+cmake -B build -S .
+cmake --build build --parallel
+```
+
+## Status
+
+This project is in active development. More information will be available as development progresses.
+
+## License
+
+[License details TBD] 

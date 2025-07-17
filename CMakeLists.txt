@@ -5,16 +5,45 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Project configuration
+option(VAPORFRAME_ENABLE_VALIDATION "Enable Vulkan validation layers" ON)
+option(VAPORFRAME_ENABLE_TESTS "Enable unit tests" OFF)
+option(VAPORFRAME_ENABLE_DOCS "Enable documentation generation" OFF)
+
 # Include FetchContent for managing external dependencies
 include(FetchContent)
 
-# Fetch GLM
+# Fetch GLM (Mathematics library)
 FetchContent_Declare(
   glm
   GIT_REPOSITORY https://github.com/g-truc/glm.git
-  GIT_TAG 1.0.1 # Updated to a newer stable tag
+  GIT_TAG 1.0.1
 )
 FetchContent_MakeAvailable(glm)
+
+# Fetch spdlog (Logging library)
+FetchContent_Declare(
+  spdlog
+  GIT_REPOSITORY https://github.com/gabime/spdlog.git
+  GIT_TAG v1.13.0
+)
+FetchContent_MakeAvailable(spdlog)
+
+# Fetch yaml-cpp (YAML parsing)
+FetchContent_Declare(
+  yaml-cpp
+  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+  GIT_TAG yaml-cpp-0.8.0
+)
+FetchContent_MakeAvailable(yaml-cpp)
+
+# Fetch mimalloc (High-performance allocator)
+FetchContent_Declare(
+  mimalloc
+  GIT_REPOSITORY https://github.com/microsoft/mimalloc.git
+  GIT_TAG v2.1.7
+)
+FetchContent_MakeAvailable(mimalloc)
 
 # Set a default build type if none was specified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -31,8 +60,24 @@ find_package(Vulkan REQUIRED)
 # Ensure you have downloaded GLFW and placed it in third_party/glfw
 add_subdirectory(third_party/glfw-3.4 EXCLUDE_FROM_ALL)
 
+# Add subdirectories
 add_subdirectory(src)
-# add_subdirectory(editor) # We'll add this later
-# add_subdirectory(projects) # For example projects
 
-message(STATUS "Using C++ Standard: ${CMAKE_CXX_STANDARD}") 
+# Conditionally add test directory
+if(VAPORFRAME_ENABLE_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
+# Conditionally add documentation
+if(VAPORFRAME_ENABLE_DOCS)
+    add_subdirectory(docs)
+endif()
+
+# Print configuration summary
+message(STATUS "VaporFrame Engine Configuration:")
+message(STATUS "  C++ Standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "  Build Type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "  Validation Layers: ${VAPORFRAME_ENABLE_VALIDATION}")
+message(STATUS "  Tests Enabled: ${VAPORFRAME_ENABLE_TESTS}")
+message(STATUS "  Documentation: ${VAPORFRAME_ENABLE_DOCS}") 

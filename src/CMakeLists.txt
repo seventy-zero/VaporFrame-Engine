@@ -2,7 +2,8 @@
 add_executable(VaporFrameEngine
     main.cpp
     VulkanRenderer.cpp
-    # VulkanRenderer.h # Headers are usually not listed here but found via include paths
+    Core/Logger.cpp
+    # Headers are usually not listed here but found via include paths
 )
 
 # target_sources(VaporFrameCore
@@ -20,11 +21,14 @@ target_include_directories(VaporFrameEngine # Changed target name
         # Any private include directories for the core
 )
 
-target_link_libraries(VaporFrameEngine # Changed target name
+target_link_libraries(VaporFrameEngine
     PUBLIC
-        glfw # Link against the glfw target made available by add_subdirectory
-        Vulkan::Vulkan # Link against Vulkan
-        glm::glm # Link against GLM
+        glfw
+        Vulkan::Vulkan
+        glm::glm
+        spdlog::spdlog
+        yaml-cpp
+        mimalloc
     PRIVATE
         # Any private link dependencies
 )

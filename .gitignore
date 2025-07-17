@@ -63,4 +63,20 @@ CTestTestfile.cmake
 
 # Output directories from common IDEs
 .vs/
-*.VC.opendb 
+*.VC.opendb
+
+# Planning and Internal Documentation
+docs/TDD-*.md
+docs/EXECUTION-PLAN.md
+docs/PROJECT-MANAGEMENT.md
+docs/PHASE-0-COMPLETION.md
+docs/WEEK-*.md
+docs/NEXT-STEPS.md
+
+# Internal project files
+*.plan
+*.roadmap
+*.strategy
+internal/
+planning/
+INTERNAL-README.md 

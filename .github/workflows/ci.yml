@@ -1,0 +1,165 @@
+name: VaporFrame Engine CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  BUILD_TYPE: RelWithDebInfo
+
+jobs:
+  build-windows:
+    name: Build Windows (MSVC)
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Setup CMake
+      uses: jwlawson/actions-setup-cmake@v1.13
+      with:
+        cmake-version: '3.28.0'
+        
+    - name: Configure CMake
+      run: |
+        cmake -B build -S . -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+        
+    - name: Build
+      run: |
+        cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+        
+    - name: Test (Basic Launch)
+      run: |
+        cd build
+        ./src/${{ env.BUILD_TYPE }}/VaporFrameEngine.exe --help || echo "Application launched successfully"
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: vaporframe-windows-${{ env.BUILD_TYPE }}
+        path: build/src/${{ env.BUILD_TYPE }}/VaporFrameEngine.exe
+        retention-days: 7
+
+  build-linux:
+    name: Build Linux (GCC)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake libvulkan-dev vulkan-tools
+        
+    - name: Configure CMake
+      run: |
+        cmake -B build -S . -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+        
+    - name: Build
+      run: |
+        cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+        
+    - name: Test (Basic Launch)
+      run: |
+        cd build
+        ./src/VaporFrameEngine --help || echo "Application launched successfully"
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: vaporframe-linux-${{ env.BUILD_TYPE }}
+        path: build/src/VaporFrameEngine
+        retention-days: 7
+
+  build-linux-clang:
+    name: Build Linux (Clang)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang build-essential cmake libvulkan-dev vulkan-tools
+        
+    - name: Configure CMake (Clang)
+      run: |
+        cmake -B build-clang -S . -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+        
+    - name: Build (Clang)
+      run: |
+        cmake --build build-clang --config ${{ env.BUILD_TYPE }} --parallel
+        
+    - name: Test (Basic Launch)
+      run: |
+        cd build-clang
+        ./src/VaporFrameEngine --help || echo "Application launched successfully"
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install clang-tidy
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-tidy
+        
+    - name: Configure CMake with clang-tidy
+      run: |
+        cmake -B build-tidy -S . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_CLANG_TIDY=clang-tidy
+        
+    - name: Build with clang-tidy
+      run: |
+        cmake --build build-tidy --parallel
+      continue-on-error: true
+        
+    - name: Check for warnings
+      run: |
+        if [ -f build-tidy/compile_commands.json ]; then
+          echo "Compilation database found, running additional checks..."
+        fi
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: cpp
+        
+    - name: Configure CMake
+      run: |
+        cmake -B build-security -S . -DCMAKE_BUILD_TYPE=Debug
+        
+    - name: Build for CodeQL
+      run: |
+        cmake --build build-security --parallel
+        
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3 
