@@ -32,3 +32,31 @@
 [2025-07-17 15:03:52.736] [info] [15796] GLFW window destroyed
 [2025-07-17 15:03:52.740] [info] [15796] GLFW terminated
 [2025-07-17 15:03:52.742] [info] [15796] Shutting down VaporFrame Engine Logger
+[2025-07-17 15:11:12.151] [info] [38728] VaporFrame Engine Logger initialized successfully
+[2025-07-17 15:11:12.151] [info] [38728] Log file: vaporframe.log
+[2025-07-17 15:11:12.151] [info] [38728] Starting VaporFrame Engine
+[2025-07-17 15:11:12.152] [info] [38728] Memory manager initialized successfully
+[2025-07-17 15:11:12.166] [info] [38728] GLFW initialized successfully
+[2025-07-17 15:11:12.348] [info] [38728] InputManager initialized successfully
+[2025-07-17 15:11:12.349] [info] [38728] InputManager initialized successfully
+[2025-07-17 15:11:12.349] [info] [38728] GLFW window created successfully
+[2025-07-17 15:11:14.271] [info] [38728] Vulkan initialization delegated to VulkanRenderer
+[2025-07-17 15:11:14.271] [info] [38728] UE5-compliant camera initialized and input controls bound
+[2025-07-17 15:11:32.981] [info] [38728] Switched to Game camera mode
+[2025-07-17 15:11:32.998] [info] [38728] Switched to Game camera mode
+[2025-07-17 15:11:33.017] [info] [38728] Switched to Game camera mode
+[2025-07-17 15:11:33.034] [info] [38728] Switched to Game camera mode
+[2025-07-17 15:11:33.050] [info] [38728] Switched to Game camera mode
+[2025-07-17 15:11:33.067] [info] [38728] Switched to Game camera mode
+[2025-07-17 15:11:33.083] [info] [38728] Switched to Game camera mode
+[2025-07-17 15:11:33.100] [info] [38728] Switched to Game camera mode
+[2025-07-17 15:11:33.116] [info] [38728] Switched to Game camera mode
+[2025-07-17 15:11:33.133] [info] [38728] Switched to Game camera mode
+[2025-07-17 15:11:33.150] [info] [38728] Switched to Game camera mode
+[2025-07-17 15:13:08.573] [info] [38728] Starting cleanup in HelloVulkanApp
+[2025-07-17 15:13:08.573] [info] [38728] InputManager shutdown
+[2025-07-17 15:13:08.574] [info] [38728] InputManager shutdown
+[2025-07-17 15:13:08.900] [info] [38728] VulkanRenderer cleaned up and deleted
+[2025-07-17 15:13:08.913] [info] [38728] GLFW window destroyed
+[2025-07-17 15:13:08.914] [info] [38728] GLFW terminated
+[2025-07-17 15:13:08.916] [info] [38728] Shutting down VaporFrame Engine Logger

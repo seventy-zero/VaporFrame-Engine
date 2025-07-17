@@ -21,6 +21,12 @@ enum class CameraType {
     Orthographic
 };
 
+enum class CameraMode {
+    Game,       // First-person game camera
+    Editor,     // Editor orbit camera
+    Cinematic   // Cinematic camera with smooth movements
+};
+
 enum class CameraMovement {
     Forward,
     Backward,
@@ -48,13 +54,24 @@ public:
     void setFarPlane(float farPlane);
     void setOrthographicSize(float size);
     
-    // Camera movement
+    // Camera mode management
+    void setCameraMode(CameraMode mode);
+    CameraMode getCameraMode() const { return cameraMode; }
+    
+    // Camera movement (UE5-style)
     void move(const glm::vec3& offset);
     void move(CameraMovement direction, float distance);
-    void rotate(float yaw, float pitch);
-    void rotateAroundTarget(float yaw, float pitch);
+    void rotate(float yaw, float pitch, float roll = 0.0f);
     void lookAt(const glm::vec3& target);
     void orbit(const glm::vec3& center, float distance, float yaw, float pitch);
+    
+    // UE5 Editor controls
+    void handleEditorMouseInput(double mouseX, double mouseY, bool leftPressed, bool rightPressed, bool middlePressed, bool altPressed);
+    void handleEditorScroll(double yOffset);
+    
+    // UE5 Game controls
+    void handleGameMouseInput(double mouseX, double mouseY, bool rightPressed);
+    void handleGameKeyboardInput(float deltaTime);
     
     // Camera controls
     void enableMouseLook(bool enable);
@@ -62,6 +79,8 @@ public:
     void setMouseSensitivity(float sensitivity);
     void setMovementSpeed(float speed);
     void setRotationSpeed(float speed);
+    void setAcceleration(float acceleration);
+    void setDeceleration(float deceleration);
     
     // Update camera (call once per frame)
     void update(float deltaTime);
@@ -88,12 +107,6 @@ public:
     bool isSphereInFrustum(const glm::vec3& center, float radius) const;
     bool isBoxInFrustum(const glm::vec3& min, const glm::vec3& max) const;
     
-    // Camera presets
-    void setFirstPersonMode();
-    void setThirdPersonMode();
-    void setOrbitMode();
-    void setTopDownMode();
-    
     // Input integration
     void bindInputControls(InputManager& inputManager);
     void unbindInputControls();
@@ -101,6 +114,7 @@ public:
 private:
     // Camera properties
     CameraType type;
+    CameraMode cameraMode;
     glm::vec3 position;
     glm::vec3 target;
     glm::vec3 up;
@@ -108,7 +122,7 @@ private:
     glm::vec3 right;
     
     // Projection properties
-    float fov;
+    float fov;              // Horizontal FOV (like UE5)
     float aspectRatio;
     float nearPlane;
     float farPlane;
@@ -118,6 +132,8 @@ private:
     float movementSpeed;
     float rotationSpeed;
     float mouseSensitivity;
+    float acceleration;
+    float deceleration;
     
     // Control flags
     bool mouseLookEnabled;
@@ -129,11 +145,18 @@ private:
     float lastMouseY;
     float yaw;
     float pitch;
+    float roll;
     
-    // Orbit mode properties
+    // UE5 Editor orbit state
     bool orbitMode;
     glm::vec3 orbitCenter;
     float orbitDistance;
+    float orbitYaw;
+    float orbitPitch;
+    
+    // Movement velocity (for smooth acceleration)
+    glm::vec3 velocity;
+    glm::vec3 targetVelocity;
     
     // Input binding IDs
     std::vector<std::string> inputBindings;
@@ -143,6 +166,8 @@ private:
     void updateProjectionMatrix();
     void constrainPitch();
     void calculateFrustumPlanes() const;
+    void updateOrbitCamera();
+    void applyMovementAcceleration(float deltaTime);
     
     // Frustum planes for culling
     struct FrustumPlane {
@@ -171,9 +196,9 @@ public:
     std::shared_ptr<Camera> getCamera() const { return camera; }
     
     // Control modes
-    void setFreeLookMode();
-    void setOrbitMode(const glm::vec3& center);
-    void setFollowMode(const glm::vec3& target, float distance);
+    void setGameMode();
+    void setEditorMode();
+    void setCinematicMode();
     
     // Input handling
     void handleMouseMovement(double xOffset, double yOffset);
@@ -182,9 +207,6 @@ public:
     
 private:
     std::shared_ptr<Camera> camera;
-    glm::vec3 followTarget;
-    float followDistance;
-    bool followMode;
     
     // Input state
     std::unordered_map<CameraMovement, bool> movementState;

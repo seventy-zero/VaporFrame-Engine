@@ -68,6 +68,48 @@ void InputManager::update() {
     mouse.deltaY = currentY - lastMouseY;
     lastMouseX = currentX;
     lastMouseY = currentY;
+
+    // --- FIX: Update mouse button held state ---
+    for (auto& pair : mouse.buttonStates) {
+        int button = pair.first;
+        InputState& state = pair.second;
+        int glfwState = glfwGetMouseButton(window, button);
+        if (state == InputState::Pressed && glfwState == GLFW_PRESS) {
+            state = InputState::Held;
+        } else if (state == InputState::Released && glfwState == GLFW_RELEASE) {
+            // Remove released buttons from state map
+            state = InputState::Released;
+        }
+    }
+    // Remove released mouse buttons from state map
+    for (auto it = mouse.buttonStates.begin(); it != mouse.buttonStates.end(); ) {
+        if (it->second == InputState::Released) {
+            it = mouse.buttonStates.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // --- FIX: Update key held state ---
+    for (auto& pair : keyboard.keyStates) {
+        int key = pair.first;
+        InputState& state = pair.second;
+        int glfwState = glfwGetKey(window, key);
+        if (state == InputState::Pressed && glfwState == GLFW_PRESS) {
+            state = InputState::Held;
+        } else if (state == InputState::Released && glfwState == GLFW_RELEASE) {
+            // Remove released keys from state map
+            state = InputState::Released;
+        }
+    }
+    // Remove released keys from state map
+    for (auto it = keyboard.keyStates.begin(); it != keyboard.keyStates.end(); ) {
+        if (it->second == InputState::Released) {
+            it = keyboard.keyStates.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 void InputManager::bindAction(const std::string& name, InputDevice device, int keyCode, 

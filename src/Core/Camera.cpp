@@ -10,12 +10,13 @@ namespace Core {
 // Camera Implementation
 Camera::Camera(CameraType type)
     : type(type)
+    , cameraMode(CameraMode::Game)
     , position(0.0f, 0.0f, 3.0f)
     , target(0.0f, 0.0f, 0.0f)
     , up(0.0f, 1.0f, 0.0f)
     , front(0.0f, 0.0f, -1.0f)
     , right(1.0f, 0.0f, 0.0f)
-    , fov(45.0f)
+    , fov(90.0f)  // UE5 default horizontal FOV
     , aspectRatio(16.0f / 9.0f)
     , nearPlane(0.1f)
     , farPlane(100.0f)
@@ -23,6 +24,8 @@ Camera::Camera(CameraType type)
     , movementSpeed(5.0f)
     , rotationSpeed(1.0f)
     , mouseSensitivity(0.1f)
+    , acceleration(50.0f)  // Much faster acceleration for responsive movement
+    , deceleration(20.0f)  // Faster deceleration
     , mouseLookEnabled(false)
     , keyboardMovementEnabled(false)
     , firstMouse(true)
@@ -30,15 +33,22 @@ Camera::Camera(CameraType type)
     , lastMouseY(0.0f)
     , yaw(-90.0f)
     , pitch(0.0f)
+    , roll(0.0f)
     , orbitMode(false)
     , orbitCenter(0.0f, 0.0f, 0.0f)
     , orbitDistance(5.0f)
+    , orbitYaw(-90.0f)
+    , orbitPitch(0.0f)
+    , velocity(0.0f)
+    , targetVelocity(0.0f)
     , frustumValid(false)
     , viewMatrixDirty(true)
     , projectionMatrixDirty(true) {
     
     updateVectors();
-    VF_LOG_DEBUG("Camera created with type: {}", type == CameraType::Perspective ? "Perspective" : "Orthographic");
+    VF_LOG_DEBUG("Camera created with type: {} and mode: {}", 
+                 type == CameraType::Perspective ? "Perspective" : "Orthographic",
+                 cameraMode == CameraMode::Game ? "Game" : cameraMode == CameraMode::Editor ? "Editor" : "Cinematic");
 }
 
 void Camera::setPosition(const glm::vec3& pos) {
@@ -88,6 +98,21 @@ void Camera::setOrthographicSize(float size) {
     frustumValid = false;
 }
 
+void Camera::setCameraMode(CameraMode mode) {
+    cameraMode = mode;
+    if (mode == CameraMode::Editor) {
+        orbitMode = true;
+        orbitCenter = target;
+        orbitDistance = glm::length(position - target);
+        orbitYaw = yaw;
+        orbitPitch = pitch;
+    } else {
+        orbitMode = false;
+    }
+    VF_LOG_DEBUG("Camera mode changed to: {}", 
+                 mode == CameraMode::Game ? "Game" : mode == CameraMode::Editor ? "Editor" : "Cinematic");
+}
+
 void Camera::move(const glm::vec3& offset) {
     position += offset;
     viewMatrixDirty = true;
@@ -99,53 +124,32 @@ void Camera::move(CameraMovement direction, float distance) {
     
     switch (direction) {
         case CameraMovement::Forward:
-            position += front * velocity;
+            targetVelocity += front * velocity;
             break;
         case CameraMovement::Backward:
-            position -= front * velocity;
+            targetVelocity -= front * velocity;
             break;
         case CameraMovement::Left:
-            position -= right * velocity;
+            targetVelocity -= right * velocity;
             break;
         case CameraMovement::Right:
-            position += right * velocity;
+            targetVelocity += right * velocity;
             break;
         case CameraMovement::Up:
-            position += up * velocity;
+            targetVelocity += up * velocity;
             break;
         case CameraMovement::Down:
-            position -= up * velocity;
+            targetVelocity -= up * velocity;
             break;
     }
-    
-    viewMatrixDirty = true;
-    frustumValid = false;
 }
 
-void Camera::rotate(float yawOffset, float pitchOffset) {
+void Camera::rotate(float yawOffset, float pitchOffset, float rollOffset) {
     yaw += yawOffset * mouseSensitivity;
     pitch += pitchOffset * mouseSensitivity;
+    roll += rollOffset * mouseSensitivity;
     
     constrainPitch();
-    updateVectors();
-    viewMatrixDirty = true;
-    frustumValid = false;
-}
-
-void Camera::rotateAroundTarget(float yawOffset, float pitchOffset) {
-    yaw += yawOffset * mouseSensitivity;
-    pitch += pitchOffset * mouseSensitivity;
-    
-    constrainPitch();
-    
-    // Calculate new position based on spherical coordinates
-    float x = orbitDistance * cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    float y = orbitDistance * sin(glm::radians(pitch));
-    float z = orbitDistance * sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-    
-    position = orbitCenter + glm::vec3(x, y, z);
-    target = orbitCenter;
-    
     updateVectors();
     viewMatrixDirty = true;
     frustumValid = false;
@@ -164,21 +168,109 @@ void Camera::lookAt(const glm::vec3& tgt) {
 void Camera::orbit(const glm::vec3& center, float distance, float yawAngle, float pitchAngle) {
     orbitCenter = center;
     orbitDistance = distance;
-    yaw = yawAngle;
-    pitch = pitchAngle;
+    orbitYaw = yawAngle;
+    orbitPitch = pitchAngle;
     
     constrainPitch();
+    updateOrbitCamera();
+}
+
+void Camera::handleEditorMouseInput(double mouseX, double mouseY, bool leftPressed, bool rightPressed, bool middlePressed, bool altPressed) {
+    if (!altPressed) return;
     
-    float x = distance * cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    float y = distance * sin(glm::radians(pitch));
-    float z = distance * sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    if (firstMouse) {
+        lastMouseX = static_cast<float>(mouseX);
+        lastMouseY = static_cast<float>(mouseY);
+        firstMouse = false;
+        return;
+    }
     
-    position = center + glm::vec3(x, y, z);
-    target = center;
+    float xOffset = static_cast<float>(mouseX) - lastMouseX;
+    float yOffset = lastMouseY - static_cast<float>(mouseY);
     
-    updateVectors();
-    viewMatrixDirty = true;
-    frustumValid = false;
+    lastMouseX = static_cast<float>(mouseX);
+    lastMouseY = static_cast<float>(mouseY);
+    
+    if (altPressed && leftPressed) {
+        // Orbit camera
+        orbitYaw += xOffset * mouseSensitivity;
+        orbitPitch += yOffset * mouseSensitivity;
+        constrainPitch();
+        updateOrbitCamera();
+    } else if (altPressed && rightPressed) {
+        // Zoom camera
+        orbitDistance -= yOffset * 0.1f;
+        orbitDistance = std::max(0.1f, orbitDistance);
+        updateOrbitCamera();
+    } else if (altPressed && middlePressed) {
+        // Pan camera
+        glm::vec3 panOffset = (right * -xOffset + up * yOffset) * 0.01f * orbitDistance;
+        orbitCenter += panOffset;
+        updateOrbitCamera();
+    }
+}
+
+void Camera::handleEditorScroll(double yOffset) {
+    if (cameraMode == CameraMode::Editor) {
+        orbitDistance -= yOffset * 0.5f;
+        orbitDistance = std::max(0.1f, orbitDistance);
+        updateOrbitCamera();
+    }
+}
+
+void Camera::handleGameMouseInput(double mouseX, double mouseY, bool rightPressed) {
+    // In UE5-style, mouse look works when right button is held
+    if (!rightPressed) {
+        // Reset first mouse flag when not looking
+        firstMouse = true;
+        return;
+    }
+    
+    if (firstMouse) {
+        lastMouseX = static_cast<float>(mouseX);
+        lastMouseY = static_cast<float>(mouseY);
+        firstMouse = false;
+        return;
+    }
+    
+    float xOffset = static_cast<float>(mouseX) - lastMouseX;
+    float yOffset = lastMouseY - static_cast<float>(mouseY);
+    
+    lastMouseX = static_cast<float>(mouseX);
+    lastMouseY = static_cast<float>(mouseY);
+    
+    // Only rotate if there's actual movement
+    if (std::abs(xOffset) > 0.1f || std::abs(yOffset) > 0.1f) {
+        rotate(xOffset, yOffset);
+    }
+}
+
+void Camera::handleGameKeyboardInput(float deltaTime) {
+    targetVelocity = glm::vec3(0.0f);
+    
+    float speedMultiplier = 1.0f;
+    if (IsKeyHeld(KeyCode::Shift)) {
+        speedMultiplier = 2.0f; // Faster movement with Shift
+    }
+    
+    if (IsKeyHeld(KeyCode::W)) {
+        targetVelocity += front * movementSpeed * speedMultiplier;
+    }
+    if (IsKeyHeld(KeyCode::S)) {
+        targetVelocity -= front * movementSpeed * speedMultiplier;
+    }
+    if (IsKeyHeld(KeyCode::A)) {
+        targetVelocity -= right * movementSpeed * speedMultiplier;
+    }
+    if (IsKeyHeld(KeyCode::D)) {
+        targetVelocity += right * movementSpeed * speedMultiplier;
+    }
+    if (IsKeyHeld(KeyCode::Q)) {
+        targetVelocity -= up * movementSpeed * speedMultiplier;
+    }
+    if (IsKeyHeld(KeyCode::E)) {
+        targetVelocity += up * movementSpeed * speedMultiplier;
+    }
 }
 
 void Camera::enableMouseLook(bool enable) {
@@ -204,52 +296,131 @@ void Camera::setRotationSpeed(float speed) {
     rotationSpeed = speed;
 }
 
+void Camera::setAcceleration(float accel) {
+    acceleration = accel;
+}
+
+void Camera::setDeceleration(float decel) {
+    deceleration = decel;
+}
+
 void Camera::update(float deltaTime) {
-    // Handle mouse look if enabled
-    if (mouseLookEnabled) {
-        double mouseX, mouseY;
-        InputManager::getInstance().getMousePosition(mouseX, mouseY);
-        
-        if (firstMouse) {
-            lastMouseX = static_cast<float>(mouseX);
-            lastMouseY = static_cast<float>(mouseY);
-            firstMouse = false;
-        }
-        
-        float xOffset = static_cast<float>(mouseX) - lastMouseX;
-        float yOffset = lastMouseY - static_cast<float>(mouseY);
-        
-        lastMouseX = static_cast<float>(mouseX);
-        lastMouseY = static_cast<float>(mouseY);
-        
-        if (orbitMode) {
-            rotateAroundTarget(xOffset, yOffset);
-        } else {
-            rotate(xOffset, yOffset);
-        }
+    // Handle input based on camera mode
+    switch (cameraMode) {
+        case CameraMode::Game:
+            if (keyboardMovementEnabled) {
+                handleGameKeyboardInput(deltaTime);
+            }
+            if (mouseLookEnabled) {
+                double mouseX, mouseY;
+                InputManager::getInstance().getMousePosition(mouseX, mouseY);
+                bool rightPressed = IsMouseButtonHeld(static_cast<int>(KeyCode::MouseRight));
+                // Debug logging for right mouse button
+                static int debugCounter = 0;
+                if (debugCounter++ % 30 == 0) {
+                    VF_LOG_INFO("Right mouse held: {}", rightPressed ? "true" : "false");
+                }
+                handleGameMouseInput(mouseX, mouseY, rightPressed);
+            }
+            break;
+            
+        case CameraMode::Editor:
+            {
+                double mouseX, mouseY;
+                InputManager::getInstance().getMousePosition(mouseX, mouseY);
+                bool leftPressed = IsMouseButtonHeld(static_cast<int>(KeyCode::MouseLeft));
+                bool rightPressed = IsMouseButtonHeld(static_cast<int>(KeyCode::MouseRight));
+                bool middlePressed = IsMouseButtonHeld(static_cast<int>(KeyCode::MouseMiddle));
+                bool altPressed = IsKeyHeld(KeyCode::Alt);
+                handleEditorMouseInput(mouseX, mouseY, leftPressed, rightPressed, middlePressed, altPressed);
+            }
+            break;
+            
+        case CameraMode::Cinematic:
+            // Smooth camera movements for cinematic mode
+            break;
     }
     
-    // Handle keyboard movement if enabled
-    if (keyboardMovementEnabled) {
-        if (IsKeyHeld(KeyCode::W)) {
-            move(CameraMovement::Forward, deltaTime);
-        }
-        if (IsKeyHeld(KeyCode::S)) {
-            move(CameraMovement::Backward, deltaTime);
-        }
-        if (IsKeyHeld(KeyCode::A)) {
-            move(CameraMovement::Left, deltaTime);
-        }
-        if (IsKeyHeld(KeyCode::D)) {
-            move(CameraMovement::Right, deltaTime);
-        }
-        if (IsKeyHeld(KeyCode::Q)) {
-            move(CameraMovement::Down, deltaTime);
-        }
-        if (IsKeyHeld(KeyCode::E)) {
-            move(CameraMovement::Up, deltaTime);
+    // Apply movement
+    applyMovementAcceleration(deltaTime);
+    
+    // Update orbit camera if needed
+    if (orbitMode) {
+        updateOrbitCamera();
+    }
+}
+
+void Camera::applyMovementAcceleration(float deltaTime) {
+    // For Game and Editor modes, movement is instant (no acceleration)
+    if (cameraMode == CameraMode::Game || cameraMode == CameraMode::Editor) {
+        velocity = targetVelocity;
+    } else {
+        // Cinematic mode: smooth acceleration/deceleration
+        if (glm::length(targetVelocity) > 0.0f) {
+            velocity = glm::mix(velocity, targetVelocity, std::min(1.0f, acceleration * deltaTime));
+        } else {
+            velocity = glm::mix(velocity, glm::vec3(0.0f), std::min(1.0f, deceleration * deltaTime));
         }
     }
+    // Apply velocity to position
+    if (glm::length(velocity) > 0.001f) {
+        position += velocity * deltaTime;
+        viewMatrixDirty = true;
+        frustumValid = false;
+    }
+}
+
+void Camera::updateOrbitCamera() {
+    // Calculate position from spherical coordinates
+    float x = orbitDistance * cos(glm::radians(orbitYaw)) * cos(glm::radians(orbitPitch));
+    float y = orbitDistance * sin(glm::radians(orbitPitch));
+    float z = orbitDistance * sin(glm::radians(orbitYaw)) * cos(glm::radians(orbitPitch));
+    
+    position = orbitCenter + glm::vec3(x, y, z);
+    target = orbitCenter;
+    
+    // Update camera vectors
+    front = glm::normalize(target - position);
+    right = glm::normalize(glm::cross(front, up));
+    up = glm::normalize(glm::cross(right, front));
+    
+    // Update yaw and pitch for consistency
+    yaw = orbitYaw;
+    pitch = orbitPitch;
+    
+    viewMatrixDirty = true;
+    frustumValid = false;
+}
+
+void Camera::updateVectors() {
+    // Calculate the new front vector
+    glm::vec3 newFront;
+    newFront.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    newFront.y = sin(glm::radians(pitch));
+    newFront.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front = glm::normalize(newFront);
+    
+    // Recalculate the right and up vector
+    right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
+    up = glm::normalize(glm::cross(right, front));
+}
+
+void Camera::updateProjectionMatrix() {
+    if (type == CameraType::Perspective) {
+        // Use horizontal FOV like UE5
+        float verticalFOV = 2.0f * atan(tan(glm::radians(fov) * 0.5f) / aspectRatio);
+        projectionMatrix = glm::perspective(verticalFOV, aspectRatio, nearPlane, farPlane);
+    } else {
+        float halfSize = orthographicSize * 0.5f;
+        projectionMatrix = glm::ortho(-halfSize * aspectRatio, halfSize * aspectRatio, 
+                                     -halfSize, halfSize, nearPlane, farPlane);
+    }
+    projectionMatrixDirty = false;
+}
+
+void Camera::constrainPitch() {
+    if (pitch > 89.0f) pitch = 89.0f;
+    if (pitch < -89.0f) pitch = -89.0f;
 }
 
 glm::mat4 Camera::getViewMatrix() const {
@@ -262,14 +433,7 @@ glm::mat4 Camera::getViewMatrix() const {
 
 glm::mat4 Camera::getProjectionMatrix() const {
     if (projectionMatrixDirty) {
-        if (type == CameraType::Perspective) {
-            projectionMatrix = glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
-        } else {
-            float halfSize = orthographicSize * 0.5f;
-            projectionMatrix = glm::ortho(-halfSize * aspectRatio, halfSize * aspectRatio, 
-                                        -halfSize, halfSize, nearPlane, farPlane);
-        }
-        projectionMatrixDirty = false;
+        const_cast<Camera*>(this)->updateProjectionMatrix();
     }
     return projectionMatrix;
 }
@@ -279,9 +443,7 @@ glm::mat4 Camera::getViewProjectionMatrix() const {
 }
 
 bool Camera::isPointInFrustum(const glm::vec3& point) const {
-    if (!frustumValid) {
-        calculateFrustumPlanes();
-    }
+    calculateFrustumPlanes();
     
     for (const auto& plane : frustumPlanes) {
         if (glm::dot(plane.normal, point) + plane.distance < 0) {
@@ -292,9 +454,7 @@ bool Camera::isPointInFrustum(const glm::vec3& point) const {
 }
 
 bool Camera::isSphereInFrustum(const glm::vec3& center, float radius) const {
-    if (!frustumValid) {
-        calculateFrustumPlanes();
-    }
+    calculateFrustumPlanes();
     
     for (const auto& plane : frustumPlanes) {
         if (glm::dot(plane.normal, center) + plane.distance < -radius) {
@@ -305,34 +465,21 @@ bool Camera::isSphereInFrustum(const glm::vec3& center, float radius) const {
 }
 
 bool Camera::isBoxInFrustum(const glm::vec3& min, const glm::vec3& max) const {
-    if (!frustumValid) {
-        calculateFrustumPlanes();
-    }
+    calculateFrustumPlanes();
     
     for (const auto& plane : frustumPlanes) {
         glm::vec3 positive = max;
         glm::vec3 negative = min;
         
-        if (plane.normal.x >= 0) {
-            positive.x = max.x;
-            negative.x = min.x;
-        } else {
+        if (plane.normal.x < 0) {
             positive.x = min.x;
             negative.x = max.x;
         }
-        
-        if (plane.normal.y >= 0) {
-            positive.y = max.y;
-            negative.y = min.y;
-        } else {
+        if (plane.normal.y < 0) {
             positive.y = min.y;
             negative.y = max.y;
         }
-        
-        if (plane.normal.z >= 0) {
-            positive.z = max.z;
-            negative.z = min.z;
-        } else {
+        if (plane.normal.z < 0) {
             positive.z = min.z;
             negative.z = max.z;
         }
@@ -344,91 +491,9 @@ bool Camera::isBoxInFrustum(const glm::vec3& min, const glm::vec3& max) const {
     return true;
 }
 
-void Camera::setFirstPersonMode() {
-    orbitMode = false;
-    mouseLookEnabled = true;
-    keyboardMovementEnabled = true;
-    VF_LOG_DEBUG("Camera set to first person mode");
-}
-
-void Camera::setThirdPersonMode() {
-    orbitMode = true;
-    mouseLookEnabled = true;
-    keyboardMovementEnabled = true;
-    VF_LOG_DEBUG("Camera set to third person mode");
-}
-
-void Camera::setOrbitMode() {
-    orbitMode = true;
-    mouseLookEnabled = true;
-    keyboardMovementEnabled = false;
-    VF_LOG_DEBUG("Camera set to orbit mode");
-}
-
-void Camera::setTopDownMode() {
-    orbitMode = false;
-    mouseLookEnabled = false;
-    keyboardMovementEnabled = true;
-    position = glm::vec3(0.0f, 10.0f, 0.0f);
-    target = glm::vec3(0.0f, 0.0f, 0.0f);
-    up = glm::vec3(0.0f, 0.0f, -1.0f);
-    updateVectors();
-    VF_LOG_DEBUG("Camera set to top down mode");
-}
-
-void Camera::bindInputControls(InputManager& inputManager) {
-    // Bind mouse look
-    inputManager.bindAction("CameraMouseLook", InputDevice::Mouse, 
-                           static_cast<int>(KeyCode::MouseRight), InputAction::Hold,
-                           [this]() { enableMouseLook(true); });
-    
-    // Bind movement keys
-    inputManager.bindAction("CameraForward", InputDevice::Keyboard, 
-                           static_cast<int>(KeyCode::W), InputAction::Hold,
-                           [this]() { /* Handled in update() */ });
-    
-    inputManager.bindAction("CameraBackward", InputDevice::Keyboard, 
-                           static_cast<int>(KeyCode::S), InputAction::Hold,
-                           [this]() { /* Handled in update() */ });
-    
-    inputManager.bindAction("CameraLeft", InputDevice::Keyboard, 
-                           static_cast<int>(KeyCode::A), InputAction::Hold,
-                           [this]() { /* Handled in update() */ });
-    
-    inputManager.bindAction("CameraRight", InputDevice::Keyboard, 
-                           static_cast<int>(KeyCode::D), InputAction::Hold,
-                           [this]() { /* Handled in update() */ });
-    
-    VF_LOG_DEBUG("Camera input controls bound");
-}
-
-void Camera::unbindInputControls() {
-    InputManager& inputManager = InputManager::getInstance();
-    inputManager.unbindAction("CameraMouseLook");
-    inputManager.unbindAction("CameraForward");
-    inputManager.unbindAction("CameraBackward");
-    inputManager.unbindAction("CameraLeft");
-    inputManager.unbindAction("CameraRight");
-    VF_LOG_DEBUG("Camera input controls unbound");
-}
-
-void Camera::updateVectors() {
-    front = glm::normalize(glm::vec3(
-        cos(glm::radians(yaw)) * cos(glm::radians(pitch)),
-        sin(glm::radians(pitch)),
-        sin(glm::radians(yaw)) * cos(glm::radians(pitch))
-    ));
-    
-    right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
-    up = glm::normalize(glm::cross(right, front));
-}
-
-void Camera::constrainPitch() {
-    if (pitch > 89.0f) pitch = 89.0f;
-    if (pitch < -89.0f) pitch = -89.0f;
-}
-
 void Camera::calculateFrustumPlanes() const {
+    if (frustumValid) return;
+    
     glm::mat4 vp = getViewProjectionMatrix();
     
     // Left plane
@@ -467,88 +532,79 @@ void Camera::calculateFrustumPlanes() const {
     frustumPlanes[5].normal.z = vp[2][3] - vp[2][2];
     frustumPlanes[5].distance = vp[3][3] - vp[3][2];
     
-    // Normalize all planes
+    // Normalize planes
     for (auto& plane : frustumPlanes) {
         float length = glm::length(plane.normal);
-        if (length > 0.0f) {
-            plane.normal = plane.normal / length;
-            plane.distance = plane.distance / length;
-        }
+        plane.normal /= length;
+        plane.distance /= length;
     }
     
-    frustumValid = true;
+    const_cast<Camera*>(this)->frustumValid = true;
+}
+
+void Camera::bindInputControls(InputManager& inputManager) {
+    // Input controls are handled in update() method
+    VF_LOG_DEBUG("Camera input controls bound");
+}
+
+void Camera::unbindInputControls() {
+    // Clear any input bindings if needed
+    inputBindings.clear();
+    VF_LOG_DEBUG("Camera input controls unbound");
 }
 
 // CameraController Implementation
 CameraController::CameraController(std::shared_ptr<Camera> cam)
-    : camera(cam)
-    , followTarget(0.0f, 0.0f, 0.0f)
-    , followDistance(5.0f)
-    , followMode(false) {
-    
-    // Initialize movement state
-    movementState[CameraMovement::Forward] = false;
-    movementState[CameraMovement::Backward] = false;
-    movementState[CameraMovement::Left] = false;
-    movementState[CameraMovement::Right] = false;
-    movementState[CameraMovement::Up] = false;
-    movementState[CameraMovement::Down] = false;
+    : camera(cam) {
+    VF_LOG_DEBUG("CameraController created");
 }
 
 void CameraController::update(float deltaTime) {
-    if (!camera) return;
-    
-    // Update camera
-    camera->update(deltaTime);
-    
-    // Handle follow mode
-    if (followMode) {
-        glm::vec3 targetPos = followTarget;
-        glm::vec3 currentPos = camera->getPosition();
-        glm::vec3 direction = glm::normalize(currentPos - targetPos);
-        glm::vec3 newPos = targetPos + direction * followDistance;
-        camera->setPosition(newPos);
-        camera->lookAt(targetPos);
+    if (camera) {
+        camera->update(deltaTime);
     }
 }
 
-void CameraController::setFreeLookMode() {
-    if (!camera) return;
-    camera->setFirstPersonMode();
-    followMode = false;
+void CameraController::setGameMode() {
+    if (camera) {
+        camera->setCameraMode(CameraMode::Game);
+        camera->enableMouseLook(true);
+        camera->enableKeyboardMovement(true);
+    }
 }
 
-void CameraController::setOrbitMode(const glm::vec3& center) {
-    if (!camera) return;
-    camera->setOrbitMode();
-    camera->orbit(center, camera->getPosition().length(), 0.0f, 0.0f);
+void CameraController::setEditorMode() {
+    if (camera) {
+        camera->setCameraMode(CameraMode::Editor);
+        camera->enableMouseLook(false);
+        camera->enableKeyboardMovement(false);
+    }
 }
 
-void CameraController::setFollowMode(const glm::vec3& target, float distance) {
-    if (!camera) return;
-    followTarget = target;
-    followDistance = distance;
-    followMode = true;
-    camera->enableMouseLook(false);
-    camera->enableKeyboardMovement(false);
+void CameraController::setCinematicMode() {
+    if (camera) {
+        camera->setCameraMode(CameraMode::Cinematic);
+        camera->enableMouseLook(false);
+        camera->enableKeyboardMovement(false);
+    }
 }
 
 void CameraController::handleMouseMovement(double xOffset, double yOffset) {
-    if (!camera) return;
-    camera->rotate(static_cast<float>(xOffset), static_cast<float>(yOffset));
+    if (camera) {
+        camera->rotate(static_cast<float>(xOffset), static_cast<float>(yOffset));
+    }
 }
 
 void CameraController::handleMouseScroll(double yOffset) {
-    if (!camera) return;
-    // Adjust FOV or movement speed based on scroll
-    float currentFOV = camera->getFOV();
-    currentFOV -= static_cast<float>(yOffset);
-    currentFOV = std::clamp(currentFOV, 1.0f, 90.0f);
-    camera->setFOV(currentFOV);
+    if (camera) {
+        camera->handleEditorScroll(yOffset);
+    }
 }
 
 void CameraController::handleKeyboardInput(CameraMovement direction, bool pressed) {
-    movementState[direction] = pressed;
+    if (camera && pressed) {
+        camera->move(direction, 1.0f);
+    }
 }
 
 } // namespace Core

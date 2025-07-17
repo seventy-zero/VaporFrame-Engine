@@ -40,13 +40,15 @@ int main() {
     // Create camera controller
     CameraController controller(camera);
     
-    // Enable camera controls
-    camera->setFirstPersonMode();
+    // Enable camera controls - UE5 compliant
+    camera->setCameraMode(CameraMode::Game);
+    camera->enableMouseLook(true);
+    camera->enableKeyboardMovement(true);
     camera->bindInputControls(inputManager);
     
-    VF_LOG_INFO("Camera test started");
-    VF_LOG_INFO("Controls: WASD to move, Mouse to look, ESC to exit");
-    VF_LOG_INFO("Press 1-4 to switch camera modes");
+    VF_LOG_INFO("UE5 Camera test started");
+    VF_LOG_INFO("Controls: WASD to move, Right-click to look, ESC to exit");
+    VF_LOG_INFO("Press F1-F3 to switch camera modes (Game/Editor/Cinematic)");
     
     // Test loop
     auto startTime = std::chrono::high_resolution_clock::now();
@@ -66,22 +68,18 @@ int main() {
             break;
         }
         
-        // Camera mode switching
-        if (IsKeyPressed(KeyCode::One)) {
-            camera->setFirstPersonMode();
-            VF_LOG_INFO("Switched to First Person mode");
+        // Camera mode switching - UE5 style
+        if (IsKeyPressed(KeyCode::F1)) {
+            camera->setCameraMode(CameraMode::Game);
+            VF_LOG_INFO("Switched to Game mode");
         }
-        if (IsKeyPressed(KeyCode::Two)) {
-            camera->setThirdPersonMode();
-            VF_LOG_INFO("Switched to Third Person mode");
+        if (IsKeyPressed(KeyCode::F2)) {
+            camera->setCameraMode(CameraMode::Editor);
+            VF_LOG_INFO("Switched to Editor mode");
         }
-        if (IsKeyPressed(KeyCode::Three)) {
-            camera->setOrbitMode();
-            VF_LOG_INFO("Switched to Orbit mode");
-        }
-        if (IsKeyPressed(KeyCode::Four)) {
-            camera->setTopDownMode();
-            VF_LOG_INFO("Switched to Top Down mode");
+        if (IsKeyPressed(KeyCode::F3)) {
+            camera->setCameraMode(CameraMode::Cinematic);
+            VF_LOG_INFO("Switched to Cinematic mode");
         }
         
         // Update camera

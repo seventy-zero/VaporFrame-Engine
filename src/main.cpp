@@ -131,18 +131,24 @@ private:
         vulkanRenderer->initVulkan();
         VF_LOG_INFO("Vulkan initialization delegated to VulkanRenderer");
 
-        // Camera setup
+        // Camera setup - UE5 compliant
         camera = std::make_shared<Camera>(CameraType::Perspective);
         camera->setPosition(glm::vec3(2.0f, 2.0f, 2.0f));
         camera->setTarget(glm::vec3(0.0f, 0.0f, 0.0f));
-        camera->setUp(glm::vec3(0.0f, 0.0f, 1.0f));
+        camera->setUp(glm::vec3(0.0f, 1.0f, 0.0f)); // UE5 uses Y-up
         camera->setAspectRatio(static_cast<float>(WIDTH) / static_cast<float>(HEIGHT));
-        camera->setFOV(45.0f);
+        camera->setFOV(90.0f); // UE5 default horizontal FOV
         camera->setNearPlane(0.1f);
-        camera->setFarPlane(10.0f);
-        camera->setFirstPersonMode();
+        camera->setFarPlane(100.0f);
+        camera->setCameraMode(CameraMode::Game); // Start in game mode
+        camera->enableMouseLook(true);
+        camera->enableKeyboardMovement(true);
+        camera->setMouseSensitivity(0.2f);  // More sensitive mouse
+        camera->setMovementSpeed(8.0f);     // Faster movement
+        camera->setAcceleration(50.0f);     // Much faster acceleration
+        camera->setDeceleration(20.0f);     // Faster deceleration
         camera->bindInputControls(InputManager::getInstance());
-        VF_LOG_INFO("Camera initialized and input controls bound");
+        VF_LOG_INFO("UE5-compliant camera initialized and input controls bound");
     }
 
     void drawFrame() {
@@ -162,6 +168,20 @@ private:
             if (IsKeyPressed(KeyCode::Escape)) {
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
                 VF_LOG_INFO("Escape key pressed, closing application");
+            }
+            
+            // Camera mode switching (UE5-style)
+            if (IsKeyPressed(KeyCode::F1)) {
+                camera->setCameraMode(CameraMode::Game);
+                VF_LOG_INFO("Switched to Game camera mode");
+            }
+            if (IsKeyPressed(KeyCode::F2)) {
+                camera->setCameraMode(CameraMode::Editor);
+                VF_LOG_INFO("Switched to Editor camera mode");
+            }
+            if (IsKeyPressed(KeyCode::F3)) {
+                camera->setCameraMode(CameraMode::Cinematic);
+                VF_LOG_INFO("Switched to Cinematic camera mode");
             }
             
             // Calculate delta time
