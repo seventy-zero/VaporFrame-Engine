@@ -34,8 +34,17 @@ void VulkanRenderer::initVulkan() {
     createUniformBuffers();
     createDescriptorPool();
     createDescriptorSets();
+    
+    // Initialize UI rendering before command buffers
+    std::cout << "Initializing UI rendering (VulkanRenderer)..." << std::endl;
+    createUIPipeline();
+    createUIVertexBuffer();
+    createUIIndexBuffer();
+    std::cout << "UI rendering initialized successfully (VulkanRenderer)." << std::endl;
+    
     createCommandBuffers();
     createSyncObjects();
+    
     std::cout << "Vulkan initialized successfully by VulkanRenderer." << std::endl;
 }
 
@@ -645,6 +654,181 @@ void VulkanRenderer::createGraphicsPipeline() {
     std::cout << "Graphics pipeline created successfully (VulkanRenderer)." << std::endl;
 }
 
+
+
+void VulkanRenderer::createUIPipeline() {
+    // Read UI shaders
+    std::cout << "Creating UI pipeline (VulkanRenderer)..." << std::endl;
+    auto vertShaderCode = readFile("shaders/ui.vert.spv");
+    auto fragShaderCode = readFile("shaders/ui.frag.spv");
+    std::cout << "UI vertex shader loaded: " << vertShaderCode.size() << " bytes (VulkanRenderer)." << std::endl;
+    std::cout << "UI fragment shader loaded: " << fragShaderCode.size() << " bytes (VulkanRenderer)." << std::endl;
+
+    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+    VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderStageInfo.module = vertShaderModule;
+    vertShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderStageInfo.module = fragShaderModule;
+    fragShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+    // Vertex input
+    auto bindingDescription = UIVertex::getBindingDescription();
+    auto attributeDescriptions = UIVertex::getAttributeDescriptions();
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
+    // Input assembly
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+    // Viewport and scissor
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (float)swapChainExtent.width;
+    viewport.height = (float)swapChainExtent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = swapChainExtent;
+
+    VkPipelineViewportStateCreateInfo viewportState{};
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.pViewports = &viewport;
+    viewportState.scissorCount = 1;
+    viewportState.pScissors = &scissor;
+
+    // Rasterizer
+    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.depthClampEnable = VK_FALSE;
+    rasterizer.rasterizerDiscardEnable = VK_FALSE;
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizer.lineWidth = 1.0f;
+    rasterizer.cullMode = VK_CULL_MODE_NONE; // No culling for UI
+    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.depthBiasEnable = VK_FALSE;
+
+    // Multisampling
+    VkPipelineMultisampleStateCreateInfo multisampling{};
+    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.sampleShadingEnable = VK_FALSE;
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    // Color blending
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    VkPipelineColorBlendStateCreateInfo colorBlending{};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.logicOpEnable = VK_FALSE;
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &colorBlendAttachment;
+
+    // Pipeline layout
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 0;
+    pipelineLayoutInfo.pushConstantRangeCount = 0;
+
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &uiPipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create UI pipeline layout (VulkanRenderer)!");
+    }
+
+    // Create pipeline
+    VkGraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.pVertexInputState = &vertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.layout = uiPipelineLayout;
+    pipelineInfo.renderPass = renderPass; // Use main render pass
+    pipelineInfo.subpass = 0;
+
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &uiPipeline) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create UI graphics pipeline (VulkanRenderer)!");
+    }
+
+    vkDestroyShaderModule(device, fragShaderModule, nullptr);
+    vkDestroyShaderModule(device, vertShaderModule, nullptr);
+
+    std::cout << "UI pipeline created successfully (VulkanRenderer)." << std::endl;
+    std::cout << "UI pipeline handle: " << uiPipeline << " (VulkanRenderer)." << std::endl;
+}
+
+void VulkanRenderer::createUIVertexBuffer() {
+    // Create a simple rectangle for UI rendering
+    std::vector<UIVertex> uiVertices = {
+        // Position (screen space), Color (RGBA), TexCoord
+        {{-0.8f, -0.6f}, {0.2f, 0.3f, 0.8f, 0.9f}, {0.0f, 0.0f}}, // Bottom-left
+        {{ 0.8f, -0.6f}, {0.2f, 0.3f, 0.8f, 0.9f}, {1.0f, 0.0f}}, // Bottom-right
+        {{ 0.8f,  0.6f}, {0.2f, 0.3f, 0.8f, 0.9f}, {1.0f, 1.0f}}, // Top-right
+        {{-0.8f,  0.6f}, {0.2f, 0.3f, 0.8f, 0.9f}, {0.0f, 1.0f}}  // Top-left
+    };
+
+    VkDeviceSize bufferSize = sizeof(uiVertices[0]) * uiVertices.size();
+
+    createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uiVertexBuffer, uiVertexBufferMemory);
+
+    void* data;
+    vkMapMemory(device, uiVertexBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, uiVertices.data(), (size_t)bufferSize);
+    vkUnmapMemory(device, uiVertexBufferMemory);
+
+    std::cout << "UI vertex buffer created successfully (VulkanRenderer)." << std::endl;
+}
+
+void VulkanRenderer::createUIIndexBuffer() {
+    std::vector<uint16_t> uiIndices = {
+        0, 1, 2, 2, 3, 0  // Two triangles forming a rectangle
+    };
+
+    VkDeviceSize bufferSize = sizeof(uiIndices[0]) * uiIndices.size();
+
+    createBuffer(bufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uiIndexBuffer, uiIndexBufferMemory);
+
+    void* data;
+    vkMapMemory(device, uiIndexBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, uiIndices.data(), (size_t)bufferSize);
+    vkUnmapMemory(device, uiIndexBufferMemory);
+
+    std::cout << "UI index buffer created successfully (VulkanRenderer)." << std::endl;
+}
+
+
+
 void VulkanRenderer::createFramebuffers() {
     swapChainFramebuffers.resize(swapChainImageViews.size());
     for (size_t i = 0; i < swapChainImageViews.size(); i++) {
@@ -809,9 +993,19 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[imageIndex], 0, nullptr);
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices_global.size()), 1, 0, 0, 0);
-    
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices_global.size()), 1, 0, 0, 0);
+
     vkCmdEndRenderPass(commandBuffer);
+
+    // Render UI on top of the 3D scene (within the same render pass)
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, uiPipeline);
+
+    VkBuffer uiVertexBuffers[] = {uiVertexBuffer};
+    VkDeviceSize uiOffsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, uiVertexBuffers, uiOffsets);
+    vkCmdBindIndexBuffer(commandBuffer, uiIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("Failed to record command buffer (VulkanRenderer)!");
@@ -1074,6 +1268,34 @@ void VulkanRenderer::cleanup() {
         vertexBufferMemory = VK_NULL_HANDLE;
     }
     std::cout << "Vertex buffer destroyed (VulkanRenderer)." << std::endl;
+
+    // Cleanup UI resources
+    std::cout << "Destroying UI resources (VulkanRenderer)..." << std::endl;
+    if (uiPipeline != VK_NULL_HANDLE) {
+        vkDestroyPipeline(device, uiPipeline, nullptr);
+        uiPipeline = VK_NULL_HANDLE;
+    }
+    if (uiPipelineLayout != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device, uiPipelineLayout, nullptr);
+        uiPipelineLayout = VK_NULL_HANDLE;
+    }
+    if (uiVertexBuffer != VK_NULL_HANDLE) {
+        vkDestroyBuffer(device, uiVertexBuffer, nullptr);
+        uiVertexBuffer = VK_NULL_HANDLE;
+    }
+    if (uiVertexBufferMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, uiVertexBufferMemory, nullptr);
+        uiVertexBufferMemory = VK_NULL_HANDLE;
+    }
+    if (uiIndexBuffer != VK_NULL_HANDLE) {
+        vkDestroyBuffer(device, uiIndexBuffer, nullptr);
+        uiIndexBuffer = VK_NULL_HANDLE;
+    }
+    if (uiIndexBufferMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, uiIndexBufferMemory, nullptr);
+        uiIndexBufferMemory = VK_NULL_HANDLE;
+    }
+    std::cout << "UI resources destroyed (VulkanRenderer)." << std::endl;
 
     std::cout << "Destroying remaining synchronization objects (VulkanRenderer)..." << std::endl;
     if (device != VK_NULL_HANDLE) {

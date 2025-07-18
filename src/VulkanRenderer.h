@@ -87,6 +87,42 @@ struct Vertex {
     }
 };
 
+// UI-specific vertex structure for 2D UI elements
+struct UIVertex {
+    glm::vec2 pos;      // Screen position (-1 to 1)
+    glm::vec4 color;    // RGBA color
+    glm::vec2 texCoord; // Texture coordinates
+
+    static VkVertexInputBindingDescription getBindingDescription() {
+        VkVertexInputBindingDescription bindingDescription{};
+        bindingDescription.binding = 0;
+        bindingDescription.stride = sizeof(UIVertex);
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        return bindingDescription;
+    }
+
+    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+        
+        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[0].offset = offsetof(UIVertex, pos);
+
+        attributeDescriptions[1].binding = 0;
+        attributeDescriptions[1].location = 1;
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(UIVertex, color);
+
+        attributeDescriptions[2].binding = 0;
+        attributeDescriptions[2].location = 2;
+        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[2].offset = offsetof(UIVertex, texCoord);
+
+        return attributeDescriptions;
+    }
+};
+
 // Global const for vertices, as it's currently defined in main.cpp
 // Consider making this part of VulkanRenderer or passing it if it changes frequently.
 const std::vector<Vertex> vertices_global = {
@@ -202,6 +238,14 @@ private:
     VkImageView textureImageView = VK_NULL_HANDLE;
     VkSampler textureSampler = VK_NULL_HANDLE;
 
+    // UI rendering resources
+    VkPipelineLayout uiPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline uiPipeline = VK_NULL_HANDLE;
+    VkBuffer uiVertexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory uiVertexBufferMemory = VK_NULL_HANDLE;
+    VkBuffer uiIndexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory uiIndexBufferMemory = VK_NULL_HANDLE;
+
     const int MAX_FRAMES_IN_FLIGHT = 2;
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -238,6 +282,11 @@ private:
     void createTextureImage();
     void createTextureImageView();
     void createTextureSampler();
+
+    // UI rendering methods
+    void createUIPipeline();
+    void createUIVertexBuffer();
+    void createUIIndexBuffer();
 
     // Helper functions for initialization
     bool checkValidationLayerSupport();

@@ -1,26 +1,31 @@
-# We'll change VaporFrameCore to be an executable for now to test main.cpp
-add_executable(VaporFrameEngine
-    main.cpp
-    VulkanRenderer.cpp
-    Core/Logger.cpp
-    Core/MemoryManager.cpp
-    Core/InputManager.cpp
-    Core/Camera.cpp
-    Core/SceneGraph.cpp
-    Core/MeshLoader.cpp
-    Core/UISystem.cpp
-    Core/ImGuiUI.cpp
-    Core/WebViewUI.cpp
-    # ImGui core and backends
-    ${imgui_SOURCE_DIR}/imgui.cpp
-    ${imgui_SOURCE_DIR}/imgui_draw.cpp
-    ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/imgui_demo.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
-    # Headers are usually not listed here but found via include paths
-)
+# Only build the main engine if Vulkan is available
+if(VULKAN_AVAILABLE)
+    # We'll change VaporFrameCore to be an executable for now to test main.cpp
+    add_executable(VaporFrameEngine
+        main.cpp
+        VulkanRenderer.cpp
+        Core/Logger.cpp
+        Core/MemoryManager.cpp
+        Core/InputManager.cpp
+        Core/Camera.cpp
+        Core/SceneGraph.cpp
+        Core/MeshLoader.cpp
+        Core/UISystem.cpp
+        Core/ImGuiUI.cpp
+        Core/WebViewUI.cpp
+        # ImGui core and backends
+        ${imgui_SOURCE_DIR}/imgui.cpp
+        ${imgui_SOURCE_DIR}/imgui_draw.cpp
+        ${imgui_SOURCE_DIR}/imgui_tables.cpp
+        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+        ${imgui_SOURCE_DIR}/imgui_demo.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+        # Headers are usually not listed here but found via include paths
+    )
+else()
+    message(STATUS "Skipping VaporFrameEngine build - Vulkan not available")
+endif()
 
 # Memory management test executable
 add_executable(MemoryTest
@@ -127,6 +132,14 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/frag.spv"
             "$<TARGET_FILE_DIR:VaporFrameEngine>/frag.spv"
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:VaporFrameEngine>/shaders"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${PROJECT_SOURCE_DIR}/shaders/ui.vert.spv"
+            "$<TARGET_FILE_DIR:VaporFrameEngine>/shaders/ui.vert.spv"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${PROJECT_SOURCE_DIR}/shaders/ui.frag.spv"
+            "$<TARGET_FILE_DIR:VaporFrameEngine>/shaders/ui.frag.spv"
         COMMENT "Copying shaders to executable directory"
     )
 elseif(APPLE)
