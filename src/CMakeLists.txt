@@ -6,6 +6,19 @@ add_executable(VaporFrameEngine
     Core/MemoryManager.cpp
     Core/InputManager.cpp
     Core/Camera.cpp
+    Core/SceneGraph.cpp
+    Core/MeshLoader.cpp
+    Core/UISystem.cpp
+    Core/ImGuiUI.cpp
+    Core/WebViewUI.cpp
+    # ImGui core and backends
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
     # Headers are usually not listed here but found via include paths
 )
 
@@ -31,6 +44,14 @@ add_executable(CameraTest
     Core/Logger.cpp
 )
 
+# Scene Graph test executable
+add_executable(SceneGraphTest
+    ../tests/SceneGraphTest.cpp
+    Core/SceneGraph.cpp
+    Core/Logger.cpp
+    Core/MeshLoader.cpp
+)
+
 # target_sources(VaporFrameCore
 # PRIVATE
 # main.cpp
@@ -42,6 +63,7 @@ target_include_directories(VaporFrameEngine # Changed target name
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR} # For includes within src
         ${PROJECT_SOURCE_DIR}/third_party/glfw-3.4/include # To find <GLFW/glfw3.h>
+        ${imgui_SOURCE_DIR} # To find <imgui.h>
     PRIVATE
         # Any private include directories for the core
 )
@@ -77,6 +99,15 @@ target_link_libraries(InputTest
 target_link_libraries(CameraTest
     PUBLIC
         glfw
+        glm::glm
+        spdlog::spdlog
+        mimalloc
+    PRIVATE
+        # Any private link dependencies
+)
+
+target_link_libraries(SceneGraphTest
+    PUBLIC
         glm::glm
         spdlog::spdlog
         mimalloc

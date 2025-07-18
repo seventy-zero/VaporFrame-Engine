@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VaporFrame Engine - Main Menu</title>
+    <link rel="stylesheet" href="../themes/default/style.css">
+    <style>
+        .main-menu {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(135deg, var(--background-color) 0%, var(--surface-color) 100%);
+        }
+        
+        .menu-header {
+            text-align: center;
+            padding: var(--spacing-xl) var(--spacing-md);
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        .menu-title {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: var(--spacing-sm);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .menu-subtitle {
+            font-size: var(--font-size-large);
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .menu-content {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: var(--spacing-xl);
+        }
+        
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--spacing-lg);
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        .menu-section {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+        
+        .menu-button {
+            width: 100%;
+            padding: var(--spacing-lg);
+            font-size: var(--font-size-large);
+            font-weight: 600;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .menu-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .menu-button:hover::before {
+            left: 100%;
+        }
+        
+        .menu-button-icon {
+            margin-right: var(--spacing-md);
+            font-size: 1.5em;
+        }
+        
+        .menu-footer {
+            text-align: center;
+            padding: var(--spacing-md);
+            background: rgba(0, 0, 0, 0.1);
+            color: var(--text-secondary);
+            font-size: var(--font-size-small);
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            margin-top: var(--spacing-sm);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success-color);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-md);
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: var(--spacing-sm);
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--border-radius-small);
+        }
+        
+        .stat-value {
+            font-size: var(--font-size-large);
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .stat-label {
+            font-size: var(--font-size-small);
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-menu">
+        <!-- Header -->
+        <div class="menu-header">
+            <h1 class="menu-title">VaporFrame Engine</h1>
+            <p class="menu-subtitle">Next-Generation Game Engine</p>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>Engine Ready</span>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="menu-content">
+            <div class="menu-grid">
+                <!-- Game Section -->
+                <div class="menu-section">
+                    <h2 class="vf-panel-title">Game</h2>
+                    <button class="vf-button menu-button" onclick="startNewGame()">
+                        <span class="menu-button-icon">🎮</span>
+                        Start New Game
+                    </button>
+                    <button class="vf-button menu-button" onclick="loadGame()">
+                        <span class="menu-button-icon">📁</span>
+                        Load Game
+                    </button>
+                    <button class="vf-button menu-button" onclick="continueGame()">
+                        <span class="menu-button-icon">▶️</span>
+                        Continue Game
+                    </button>
+                    <button class="vf-button menu-button" onclick="showMods()">
+                        <span class="menu-button-icon">🔧</span>
+                        Mods & Add-ons
+                    </button>
+                </div>
+                
+                <!-- Development Section -->
+                <div class="menu-section">
+                    <h2 class="vf-panel-title">Development</h2>
+                    <button class="vf-button menu-button" onclick="openEditor()">
+                        <span class="menu-button-icon">⚙️</span>
+                        Scene Editor
+                    </button>
+                    <button class="vf-button menu-button" onclick="openAssetBrowser()">
+                        <span class="menu-button-icon">📦</span>
+                        Asset Browser
+                    </button>
+                    <button class="vf-button menu-button" onclick="openConsole()">
+                        <span class="menu-button-icon">💻</span>
+                        Debug Console
+                    </button>
+                    <button class="vf-button menu-button" onclick="openProfiler()">
+                        <span class="menu-button-icon">📊</span>
+                        Performance Profiler
+                    </button>
+                </div>
+                
+                <!-- Settings Section -->
+                <div class="menu-section">
+                    <h2 class="vf-panel-title">Settings</h2>
+                    <button class="vf-button menu-button" onclick="openGraphicsSettings()">
+                        <span class="menu-button-icon">🎨</span>
+                        Graphics Settings
+                    </button>
+                    <button class="vf-button menu-button" onclick="openAudioSettings()">
+                        <span class="menu-button-icon">🔊</span>
+                        Audio Settings
+                    </button>
+                    <button class="vf-button menu-button" onclick="openInputSettings()">
+                        <span class="menu-button-icon">🎮</span>
+                        Input Settings
+                    </button>
+                    <button class="vf-button menu-button" onclick="openUISettings()">
+                        <span class="menu-button-icon">🎛️</span>
+                        UI Settings
+                    </button>
+                </div>
+                
+                <!-- System Section -->
+                <div class="menu-section">
+                    <h2 class="vf-panel-title">System</h2>
+                    <button class="vf-button menu-button" onclick="showAbout()">
+                        <span class="menu-button-icon">ℹ️</span>
+                        About
+                    </button>
+                    <button class="vf-button menu-button" onclick="showCredits()">
+                        <span class="menu-button-icon">👥</span>
+                        Credits
+                    </button>
+                    <button class="vf-button menu-button" onclick="checkUpdates()">
+                        <span class="menu-button-icon">🔄</span>
+                        Check Updates
+                    </button>
+                    <button class="vf-button menu-button vf-button-danger" onclick="exitEngine()">
+                        <span class="menu-button-icon">🚪</span>
+                        Exit Engine
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="menu-footer">
+            <div class="quick-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="fps-counter">60</div>
+                    <div class="stat-label">FPS</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="memory-usage">128 MB</div>
+                    <div class="stat-label">Memory</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="render-time">16.7 ms</div>
+                    <div class="stat-label">Render Time</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="draw-calls">1,234</div>
+                    <div class="stat-label">Draw Calls</div>
+                </div>
+            </div>
+            <p>VaporFrame Engine v0.1.0 | Built with Vulkan & C++</p>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="../scripts/ui-bridge.js"></script>
+    <script>
+        // Menu functionality
+        function startNewGame() {
+            vfUI.callEngine('startNewGame', {});
+            console.log('Starting new game...');
+        }
+        
+        function loadGame() {
+            vfUI.callEngine('loadGame', {});
+            console.log('Loading game...');
+        }
+        
+        function continueGame() {
+            vfUI.callEngine('continueGame', {});
+            console.log('Continuing game...');
+        }
+        
+        function showMods() {
+            vfUI.callEngine('showMods', {});
+            console.log('Showing mods...');
+        }
+        
+        function openEditor() {
+            vfUI.callEngine('openEditor', {});
+            console.log('Opening scene editor...');
+        }
+        
+        function openAssetBrowser() {
+            vfUI.callEngine('openAssetBrowser', {});
+            console.log('Opening asset browser...');
+        }
+        
+        function openConsole() {
+            vfUI.callEngine('openConsole', {});
+            console.log('Opening debug console...');
+        }
+        
+        function openProfiler() {
+            vfUI.callEngine('openProfiler', {});
+            console.log('Opening performance profiler...');
+        }
+        
+        function openGraphicsSettings() {
+            vfUI.callEngine('openGraphicsSettings', {});
+            console.log('Opening graphics settings...');
+        }
+        
+        function openAudioSettings() {
+            vfUI.callEngine('openAudioSettings', {});
+            console.log('Opening audio settings...');
+        }
+        
+        function openInputSettings() {
+            vfUI.callEngine('openInputSettings', {});
+            console.log('Opening input settings...');
+        }
+        
+        function openUISettings() {
+            vfUI.callEngine('openUISettings', {});
+            console.log('Opening UI settings...');
+        }
+        
+        function showAbout() {
+            vfUI.callEngine('showAbout', {});
+            console.log('Showing about dialog...');
+        }
+        
+        function showCredits() {
+            vfUI.callEngine('showCredits', {});
+            console.log('Showing credits...');
+        }
+        
+        function checkUpdates() {
+            vfUI.callEngine('checkUpdates', {});
+            console.log('Checking for updates...');
+        }
+        
+        function exitEngine() {
+            if (confirm('Are you sure you want to exit VaporFrame Engine?')) {
+                vfUI.callEngine('exitEngine', {});
+                console.log('Exiting engine...');
+            }
+        }
+        
+        // Register callbacks for engine communication
+        vfUI.registerCallback('updateStats', (data) => {
+            document.getElementById('fps-counter').textContent = Math.round(data.fps);
+            document.getElementById('memory-usage').textContent = vfUI.formatBytes(data.memoryUsage);
+            document.getElementById('render-time').textContent = vfUI.formatTime(data.renderTime / 1000);
+            document.getElementById('draw-calls').textContent = data.drawCalls.toLocaleString();
+        });
+        
+        vfUI.registerCallback('showNotification', (data) => {
+            // Create a simple notification
+            const notification = document.createElement('div');
+            notification.className = `vf-badge vf-badge-${data.type || 'primary'}`;
+            notification.textContent = data.message;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '1000';
+            notification.style.animation = 'slideIn 0.3s ease-out';
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        });
+        
+        // Update stats periodically
+        setInterval(() => {
+            vfUI.callEngine('getStats', {});
+        }, 1000);
+        
+        // Initialize menu
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Main menu loaded');
+            vfUI.callEngine('menuLoaded', {
+                timestamp: Date.now()
+            });
+        });
+    </script>
+</body>
+</html> 

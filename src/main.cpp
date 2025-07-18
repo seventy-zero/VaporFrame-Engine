@@ -20,6 +20,10 @@
 #include "Core/MemoryManager.h"
 #include "Core/InputManager.h"
 #include "Core/Camera.h"
+#include "Core/SceneGraph.h" // [1] Include SceneGraph
+#include "Core/UISystem.h" // [2] Include UISystem
+#include "Core/ImGuiUI.h"
+#include "Core/WebViewUI.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Vulkan uses 0.0 to 1.0 depth range
@@ -88,6 +92,11 @@ private:
     VulkanRenderer* vulkanRenderer; // Pointer to our renderer
     std::shared_ptr<Camera> camera;
     float lastFrameTime = 0.0f;
+    std::unique_ptr<UISystem> uiSystem;
+
+    // Scene Graph/ECS system
+    SceneManager& sceneManager = SceneManager::getInstance(); // [2] SceneManager singleton
+    Scene* mainScene = nullptr; // [2] Main scene pointer
 
     // All Vulkan specific members are GONE from here.
 
@@ -102,6 +111,11 @@ private:
         // Initialize memory manager
         MemoryManager::getInstance().initialize();
         VF_LOG_INFO("Memory manager initialized successfully");
+        
+        // [3] Initialize SceneManager and create main scene
+        mainScene = sceneManager.createScene("MainScene");
+        sceneManager.setActiveScene(mainScene);
+        VF_LOG_INFO("SceneManager and main scene initialized");
     }
 
     void initWindow() {
@@ -149,6 +163,127 @@ private:
         camera->setDeceleration(20.0f);     // Faster deceleration
         camera->bindInputControls(InputManager::getInstance());
         VF_LOG_INFO("UE5-compliant camera initialized and input controls bound");
+
+        // [4] Create test entities/components in the scene
+        if (mainScene) {
+            // Camera entity
+            SceneNode* ecsCamera = mainScene->createEntity("ECS_Camera");
+            auto* camComp = ecsCamera->addComponent<CameraComponent>();
+            camComp->fov = 90.0f;
+            camComp->nearPlane = 0.1f;
+            camComp->farPlane = 100.0f;
+            camComp->isMainCamera = true;
+            ecsCamera->getTransform()->setPosition(glm::vec3(2.0f, 2.0f, 2.0f));
+            
+            // Test mesh loading with generated geometry
+            SceneNode* cubeEntity = mainScene->createEntity("ECS_Cube");
+            auto* cubeComp = cubeEntity->addComponent<MeshComponent>();
+            cubeComp->setMesh(MeshUtils::createCube(1.0f));
+            cubeComp->visible = true;
+            cubeEntity->getTransform()->setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
+            
+            // Sphere entity
+            SceneNode* sphereEntity = mainScene->createEntity("ECS_Sphere");
+            auto* sphereComp = sphereEntity->addComponent<MeshComponent>();
+            sphereComp->setMesh(MeshUtils::createSphere(0.5f, 16));
+            sphereComp->visible = true;
+            sphereEntity->getTransform()->setPosition(glm::vec3(2.0f, 0.0f, 0.0f));
+            
+            // Plane entity
+            SceneNode* planeEntity = mainScene->createEntity("ECS_Plane");
+            auto* planeComp = planeEntity->addComponent<MeshComponent>();
+            planeComp->setMesh(MeshUtils::createPlane(5.0f, 5.0f, 1));
+            planeComp->visible = true;
+            planeEntity->getTransform()->setPosition(glm::vec3(0.0f, -1.0f, 0.0f));
+            
+            // Light entity
+            SceneNode* lightEntity = mainScene->createEntity("ECS_Light");
+            auto* lightComp = lightEntity->addComponent<LightComponent>();
+            lightComp->type = LightComponent::LightType::Point;
+            lightComp->color = glm::vec3(1.0f, 0.9f, 0.7f);
+            lightComp->intensity = 2.0f;
+            lightEntity->getTransform()->setPosition(glm::vec3(1.0f, 3.0f, 1.0f));
+            
+            // Add a child entity to cube
+            SceneNode* cubeChild = mainScene->createChildEntity(cubeEntity, "ECS_CubeChild");
+            cubeChild->getTransform()->setPosition(glm::vec3(0.0f, 1.5f, 0.0f));
+            auto* childComp = cubeChild->addComponent<MeshComponent>();
+            childComp->setMesh(MeshUtils::createSphere(0.3f, 8));
+            childComp->visible = true;
+            
+            VF_LOG_INFO("Test ECS entities with mesh loading created in main scene");
+        }
+        
+        // Initialize UI System
+        uiSystem = std::make_unique<UISystem>();
+        if (!uiSystem->initialize()) {
+            VF_LOG_ERROR("Failed to initialize UI System");
+            return;
+        }
+        
+        // Create ImGui UI for debug panels
+        auto imGuiUI = uiSystem->createImGuiUI("DebugUI");
+        if (imGuiUI) {
+            imGuiUI->setSceneManager(&sceneManager);
+            imGuiUI->setInputManager(&InputManager::getInstance());
+            imGuiUI->setMemoryManager(&MemoryManager::getInstance());
+            imGuiUI->setCamera(camera.get());
+        }
+        
+        // Create WebView UI for main menu
+        auto webViewUI = uiSystem->createWebViewUI("MainMenu", "assets/ui/pages/main-menu.html");
+        if (webViewUI) {
+            // Register callbacks for WebView communication
+            webViewUI->registerCallback("startNewGame", [this](const std::string& data) {
+                VF_LOG_INFO("WebView: Start new game requested");
+                // TODO: Implement new game logic
+            });
+            
+            webViewUI->registerCallback("loadGame", [this](const std::string& data) {
+                VF_LOG_INFO("WebView: Load game requested");
+                // TODO: Implement load game logic
+            });
+            
+            webViewUI->registerCallback("openEditor", [this](const std::string& data) {
+                VF_LOG_INFO("WebView: Open editor requested");
+                // TODO: Switch to editor mode
+            });
+            
+            webViewUI->registerCallback("openConsole", [this, imGuiUI](const std::string& data) {
+                VF_LOG_INFO("WebView: Open console requested");
+                if (imGuiUI) {
+                    imGuiUI->setConsoleVisible(true);
+                }
+            });
+            
+            webViewUI->registerCallback("getStats", [this, webViewUI](const std::string& data) {
+                // Send performance stats to WebView
+                auto& memoryManager = MemoryManager::getInstance();
+                auto stats = memoryManager.getGlobalStats();
+                
+                // Create stats JSON
+                std::string statsJson = "{";
+                statsJson += "\"fps\":" + std::to_string(60.0f); // TODO: Get actual FPS
+                statsJson += ",\"memoryUsage\":" + std::to_string(stats.currentUsage);
+                statsJson += ",\"renderTime\":" + std::to_string(16.7f); // TODO: Get actual render time
+                statsJson += ",\"drawCalls\":" + std::to_string(1234); // TODO: Get actual draw calls
+                statsJson += "}";
+                
+                webViewUI->callJavaScriptFunction("updateStats", statsJson);
+            });
+            
+            webViewUI->registerCallback("exitEngine", [this](const std::string& data) {
+                VF_LOG_INFO("WebView: Exit engine requested");
+                glfwSetWindowShouldClose(window, GLFW_TRUE);
+            });
+            
+            // Set WebView position and size (full screen for main menu)
+            webViewUI->setPosition(0, 0);
+            webViewUI->setSize(WIDTH, HEIGHT);
+            webViewUI->setVisible(true);
+        }
+        
+        VF_LOG_INFO("UI System initialized with debug panels and WebView main menu");
     }
 
     void drawFrame() {
@@ -158,7 +293,15 @@ private:
     }
 
     void mainLoop() {
+        VF_LOG_INFO("Starting main loop");
+        int frameCount = 0;
+        
         while (!glfwWindowShouldClose(window)) {
+            frameCount++;
+            if (frameCount % 60 == 0) { // Log every 60 frames (1 second at 60fps)
+                VF_LOG_INFO("Main loop iteration: {}", frameCount);
+            }
+            
             glfwPollEvents();
             
             // Update input manager
@@ -203,8 +346,30 @@ private:
                 vulkanRenderer->setProjectionMatrix(camera->getProjectionMatrix());
             }
 
+            // [5] Update and render the scene
+            if (frameCount == 1) {
+                VF_LOG_INFO("First frame: Updating and rendering scene");
+            }
+            sceneManager.update(deltaTime);
+            sceneManager.render();
+
+            // Update UI System
+            if (uiSystem) {
+                uiSystem->update(deltaTime);
+            }
+
+            if (frameCount == 1) {
+                VF_LOG_INFO("First frame: Calling drawFrame");
+            }
             drawFrame();
+            
+            // Render UI System (simple rendering for now)
+            if (uiSystem) {
+                uiSystem->renderSimple();
+            }
         }
+        
+        VF_LOG_INFO("Main loop ended after {} frames", frameCount);
     }
 
     void cleanup() {
@@ -228,6 +393,12 @@ private:
         }
         glfwTerminate();
         VF_LOG_INFO("GLFW terminated");
+        
+        // Shutdown UI System
+        if (uiSystem) {
+            uiSystem->shutdown();
+            uiSystem.reset();
+        }
         
         // Shutdown systems
         MemoryManager::getInstance().shutdown();

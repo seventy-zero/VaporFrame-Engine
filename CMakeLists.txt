@@ -45,6 +45,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(mimalloc)
 
+# Fetch Dear ImGui (UI library)
+FetchContent_Declare(
+  imgui
+  GIT_REPOSITORY https://github.com/ocornut/imgui.git
+  GIT_TAG docking
+)
+FetchContent_MakeAvailable(imgui)
+
+# WebView2 is available on Windows 10+ and doesn't need to be fetched
+# We'll use the system WebView2 runtime
+
 # Set a default build type if none was specified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to 'RelWithDebInfo' as none was specified.")
