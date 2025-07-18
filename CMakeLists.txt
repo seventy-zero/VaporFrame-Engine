@@ -64,8 +64,17 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
-# Vulkan
-find_package(Vulkan REQUIRED)
+# Vulkan - Make it optional for CI/CD environments
+find_package(Vulkan QUIET)
+if(NOT Vulkan_FOUND)
+    message(WARNING "Vulkan not found. This is expected in CI/CD environments without Vulkan support.")
+    message(WARNING "The engine will not be able to build without Vulkan. Please install Vulkan SDK for development.")
+    # Set a flag to indicate Vulkan is not available
+    set(VULKAN_AVAILABLE FALSE)
+else()
+    set(VULKAN_AVAILABLE TRUE)
+    message(STATUS "Vulkan found: ${Vulkan_VERSION}")
+endif()
 
 # Add GLFW from third_party directory
 # Ensure you have downloaded GLFW and placed it in third_party/glfw

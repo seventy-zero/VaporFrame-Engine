@@ -64,25 +64,27 @@ add_executable(SceneGraphTest
 #         # Example: MainLoop.cpp, Window.cpp, etc.
 # )
 
-target_include_directories(VaporFrameEngine # Changed target name
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR} # For includes within src
-        ${PROJECT_SOURCE_DIR}/third_party/glfw-3.4/include # To find <GLFW/glfw3.h>
-        ${imgui_SOURCE_DIR} # To find <imgui.h>
-    PRIVATE
-        # Any private include directories for the core
-)
+if(VULKAN_AVAILABLE)
+    target_include_directories(VaporFrameEngine # Changed target name
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR} # For includes within src
+            ${PROJECT_SOURCE_DIR}/third_party/glfw-3.4/include # To find <GLFW/glfw3.h>
+            ${imgui_SOURCE_DIR} # To find <imgui.h>
+        PRIVATE
+            # Any private include directories for the core
+    )
 
-target_link_libraries(VaporFrameEngine
-    PUBLIC
-        glfw
-        Vulkan::Vulkan
-        glm::glm
-        spdlog::spdlog
-        mimalloc
-    PRIVATE
-        # Any private link dependencies
-)
+    target_link_libraries(VaporFrameEngine
+        PUBLIC
+            glfw
+            Vulkan::Vulkan
+            glm::glm
+            spdlog::spdlog
+            mimalloc
+        PRIVATE
+            # Any private link dependencies
+    )
+endif()
 
 target_link_libraries(MemoryTest
     PUBLIC
@@ -123,7 +125,8 @@ target_link_libraries(SceneGraphTest
 # Add a custom command to copy shader files to the build directory
 # This assumes vert.spv and frag.spv are in the src/ directory next to main.cpp
 # and will be copied to the location of the VaporFrameEngine executable.
-if(WIN32)
+if(VULKAN_AVAILABLE)
+    if(WIN32)
     add_custom_command(
         TARGET VaporFrameEngine POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -166,6 +169,7 @@ else()
             "$<TARGET_FILE_DIR:VaporFrameEngine>/frag.spv"
         COMMENT "Copying shaders to executable directory"
     )
+endif()
 endif()
 
 # We might want to create a simple executable target here for initial testing
